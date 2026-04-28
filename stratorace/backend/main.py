@@ -22,8 +22,8 @@ app.add_middleware(
 )
 
 DATA = Path(__file__).parent / "data"
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # ── Data loading (cached) ────────────────────────────────────────────────────
 @lru_cache(maxsize=1)
@@ -104,34 +104,51 @@ def root():
     return {"status": "ok", "service": "StratoRace API"}
 
 
-# ── /api/chat  (Anthropic proxy — keeps key server-side) ─────────────────────
+# ── /api/chat  (Gemini proxy — keeps key server-side) ────────────────────────
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    # Build Gemini contents array from message history
+    contents = []
+    for m in req.messages:
+        role = "user" if m.role == "user" else "model"
+        contents.append({
+            "role": role,
+            "parts": [{"text": m.content}]
+        })
+
+    # Prepend system prompt as first user message if provided
+    system_text = req.system or (
+        "You are the StratoRace AI assistant — an F1 pit strategy optimisation system "
+        "built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data. "
+        "Keep answers concise (2-4 sentences). Only answer about StratoRace, F1 strategy, "
+        "tyre behaviour, or the dashboard data. If outside scope say: "
+        "'I can only answer questions about the StratoRace project and F1 strategy model.'"
+    )
 
     payload = {
-        "model": "claude-sonnet-4-20250514",
-        "max_tokens": 1000,
-        "messages": [m.model_dump() for m in req.messages],
+        "system_instruction": {"parts": [{"text": system_text}]},
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}
     }
-    if req.system:
-        payload["system"] = req.system
 
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(
-            ANTHROPIC_URL,
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
             json=payload,
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
+            headers={"content-type": "application/json"},
         )
+
     if r.status_code != 200:
         raise HTTPException(status_code=r.status_code, detail=r.text)
+
     data = r.json()
-    text = next((b["text"] for b in data.get("content", []) if b["type"] == "text"), "")
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        text = "No response from model."
     return {"text": text}
 
 
