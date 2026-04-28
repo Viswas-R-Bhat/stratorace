@@ -80,6 +80,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .compound-btn.active.HARD{border-color:rgba(235,235,235,.5);background:rgba(235,235,235,.07);color:var(--white)}
 .compound-btn.active.INTER{border-color:#00c850;background:rgba(0,200,80,.1);color:#00c850}
 
+/* Rainfall — own class so setCompound() never resets these */
+.rainfall-btn{flex:1;padding:.5rem .25rem;background:var(--surf1);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s;font-family:var(--font-m);font-size:.7rem;letter-spacing:.06em;color:var(--muted)}
+.rainfall-btn.active.dry{border-color:var(--yellow);background:rgba(255,214,0,.1);color:var(--yellow)}
+.rainfall-btn.active.wet{border-color:#00aaff;background:rgba(0,170,255,.1);color:#00aaff}
+
 .field-divider{height:1px;background:var(--border);margin:1.25rem 0}
 
 .btn-run{
@@ -292,8 +297,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
         <div class="field">
           <label>Rainfall</label>
           <div class="compound-selector">
-            <button class="compound-btn active MEDIUM" id="rainfallNo" onclick="setRainfall(false)">DRY</button>
-            <button class="compound-btn SOFT" id="rainfallYes" onclick="setRainfall(true)">RAIN</button>
+            <button class="rainfall-btn active dry" id="rainfallNo" onclick="setRainfall(false)">DRY</button>
+            <button class="rainfall-btn wet" id="rainfallYes" onclick="setRainfall(true)">RAIN</button>
           </div>
         </div>
 
@@ -403,10 +408,10 @@ function setCompound(c){
 }
 
 function setRainfall(r){
-  rainfall=r;
-  document.getElementById('rainfallNo').classList.toggle('active',!r);
-  document.getElementById('rainfallYes').classList.toggle('active',r);
-  if(!r){document.getElementById('rainfallNo').classList.add('MEDIUM');document.getElementById('rainfallYes').classList.remove('SOFT','+active')}
+  rainfall = r;
+  document.getElementById('rainfallNo').classList.toggle('active', !r);
+  document.getElementById('rainfallYes').classList.toggle('active', r);
+  updateWindow();
 }
 
 function getState(){
@@ -572,7 +577,20 @@ function updateHistoryChart(){
   });
 }
 
-,body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYSTEM,messages})});
+const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data. Answers should be concise (3 sentences max). Only answer about StratoRace, F1 strategy, or simulator output.`;
+const history=[];
+
+async function callClaude(messages){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': window.STRATORACE_API_KEY || '',
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYSTEM,messages})
+  });
   const data=await r.json();
   return data.content?.find(b=>b.type==='text')?.text||'No response.';
 }
