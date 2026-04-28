@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StratoRace — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+/* ═══════════ TOKENS ═══════════ */
+:root {
+  --bg:        #060c1a;
+  --surf0:     #0a1628;
+  --surf1:     #0f1f35;
+  --surf2:     #162840;
+  --border:    #1e3450;
+  --lime:      #B8FF00;
+  --orange:    #FF6C00;
+  --red:       #E8002D;
+  --yellow:    #FFD600;
+  --white:     #EBEBEB;
+  --muted:     #7a9ab5;
+  --lime-glow: rgba(184,255,0,0.18);
+  --lime-dim:  rgba(184,255,0,0.07);
+  --font-d: 'Rajdhani', sans-serif;
+  --font-b: 'Barlow', sans-serif;
+  --font-m: 'DM Mono', monospace;
+  --cx: 50%; --cy: 50%;
+
+  --sidebar-w: 64px;
+  --header-h: 56px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-b);
+  font-size: 15px;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  background: radial-gradient(500px circle at var(--cx) var(--cy), rgba(184,255,0,0.035) 0%, transparent 70%);
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ═══════════ TOP NAV ═══════════ */
+nav.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem 0 calc(var(--sidebar-w) + 1.5rem);
+  background: rgba(6,12,26,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.top-nav-left { display: flex; align-items: center; gap: 1.5rem; }
+
+.nav-logo {
+  font-family: var(--font-d); font-weight: 700; font-size: 1.15rem;
+  letter-spacing: 0.12em; color: var(--lime); text-decoration: none;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+
+.nav-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--lime); animation: pulse-dot 2s ease-in-out infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
+
+.nav-breadcrumb {
+  font-family: var(--font-m); font-size: 0.68rem; letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.nav-breadcrumb span { color: var(--lime); }
+
+.top-nav-right { display: flex; align-items: center; gap: 1.25rem; }
+
+.nav-links-top { display: flex; gap: 1.5rem; list-style: none; }
+.nav-links-top a {
+  font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links-top a:hover, .nav-links-top a.active { color: var(--white); }
+
+/* Filter row */
+.filter-bar {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+.filter-label {
+  font-family: var(--font-m); font-size: 0.65rem; letter-spacing: 0.1em;
+  color: var(--muted); text-transform: uppercase;
+}
+
+select.filter-select {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: var(--font-m); font-size: 0.72rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  appearance: none;
+  padding-right: 1.4rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a9ab5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+}
+
+select.filter-select:focus { border-color: var(--lime); }
+
+/* ═══════════ LAYOUT ═══════════ */
+.layout {
+  display: flex;
+  margin-top: var(--header-h);
+  min-height: calc(100vh - var(--header-h));
+}
+
+/* ═══════════ SIDEBAR ═══════════ */
+aside.sidebar {
+  position: fixed;
+  left: 0; top: var(--header-h);
+  bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--surf0);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  gap: 0.25rem;
+  z-index: 90;
+}
+
+.sidebar-icon {
+  width: 42px; height: 42px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.sidebar-icon:hover {
+  background: var(--surf1);
+  color: var(--white);
+  border-color: var(--border);
+}
+
+.sidebar-icon.active {
+  background: var(--lime-dim);
+  color: var(--lime);
+  border-color: rgba(184,255,0,0.4);
+  box-shadow: 0 0 12px var(--lime-glow);
+}
+
+/* tooltip */
+.sidebar-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: var(--font-m);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+
+.sidebar-icon:hover::after { opacity: 1; }
+
+/* ═══════════ MAIN CONTENT ═══════════ */
+main.content {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  padding: 1.5rem 1.75rem 2rem;
+  min-width: 0;
+}
+
+/* ═══════════ TAB PANEL ═══════════ */
+.tab-panel { display: none; animation: panelIn 0.3s ease; }
+.tab-panel.active { display: block; }
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════ PANEL HEADER ═══════════ */
+.panel-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel-title-group {}
+
+.panel-eyebrow {
+  font-family: var(--font-m); font-size: 0.65rem; letter-spacing: 0.2em;
+  color: var(--lime); text-transform: uppercase; margin-bottom: 0.25rem;
+}
+
+.panel-title {
+  font-family: var(--font-d); font-weight: 700; font-size: 1.6rem;
+  letter-spacing: 0.03em; color: var(--white); line-height: 1.1;
+}
+
+.panel-sub {
+  font-size: 0.82rem; color: var(--muted); margin-top: 0.35rem; line-height: 1.5;
+}
+
+.panel-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+/* tab nav arrows */
+.tab-nav-arrows {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+.tab-arrow {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-size: 1.4rem; font-weight: 300;
+  width: 36px; height: 36px; border-radius: 8px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  line-height: 1;
+}
+
+.tab-arrow:hover {
+  border-color: var(--lime); color: var(--lime);
+  box-shadow: 0 0 8px var(--lime-glow);
+}
+
+.tab-counter {
+  font-family: var(--font-m); font-size: 0.68rem; color: var(--muted);
+}
+
+/* AI Explain button */
+.btn-ai-explain {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  background: transparent;
+  border: 1px solid rgba(184,255,0,0.35);
+  color: var(--lime);
+  font-family: var(--font-d); font-weight: 600;
+  font-size: 0.82rem; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.btn-ai-explain:hover {
+  background: var(--lime-dim);
+  box-shadow: 0 0 12px var(--lime-glow);
+  border-color: var(--lime);
+}
+
+/* ═══════════ CARDS & GRIDS ═══════════ */
+.metrics-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem; margin-bottom: 1.5rem;
+}
+
+.metric-card {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.1rem 1.25rem;
+  position: relative; overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.metric-card:hover {
+  border-color: rgba(184,255,0,0.4);
+  box-shadow: 0 0 16px var(--lime-glow);
+}
+
+.metric-label {
+  font-family: var(--font-m); font-size: 0.62rem; letter-spacing: 0.12em;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 0.4rem;
+}
+
+.metric-val {
+  font-family: var(--font-d); font-weight: 700; font-size: 1.8rem;
+  line-height: 1; color: var(--lime);
+}
+
+.metric-val.orange { color: var(--orange); }
+.metric-val.yellow { color: var(--yellow); }
+.metric-val.white  { color: var(--white); }
+
+.metric-sub {
+  font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;
+}
+
+/* ═══════════ CHART CONTAINERS ═══════════ */
+.chart-card {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.25rem 1.5rem;
+  position: relative; overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.chart-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.chart-card-title {
+  font-family: var(--font-d); font-weight: 600; font-size: 0.92rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--white);
+}
+
+.chart-card-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap.tall { height: 360px; }
+
+/* 2-col grid */
+.chart-grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.25rem; margin-bottom: 1.25rem;
+}
+
+/* ═══════════ SKELETON LOADER ═══════════ */
+.skeleton {
+  background: linear-gradient(90deg, var(--surf1) 25%, var(--surf2) 50%, var(--surf1) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-chart { height: 280px; border-radius: 12px; }
+.skeleton-metric { height: 80px; border-radius: 12px; }
+.skeleton-row { height: 18px; margin-bottom: 8px; border-radius: 4px; }
+
+/* ═══════════ TABLE ═══════════ */
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--font-m); font-size: 0.75rem;
+}
+
+.data-table th {
+  background: var(--surf1); border-bottom: 1px solid var(--border);
+  padding: 0.65rem 0.9rem; text-align: left;
+  letter-spacing: 0.08em; color: var(--muted); font-weight: 500;
+  text-transform: uppercase; font-size: 0.65rem;
+}
+
+.data-table td {
+  padding: 0.6rem 0.9rem; border-bottom: 1px solid rgba(30,52,80,0.5);
+  color: var(--white); font-size: 0.78rem;
+}
+
+.data-table tr:hover td { background: var(--surf1); }
+
+.compound-pill {
+  display: inline-block; padding: 0.15rem 0.5rem;
+  border-radius: 4px; font-size: 0.65rem; font-weight: 500;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.compound-pill.SOFT   { background: rgba(232,0,45,0.2); color: var(--red); border: 1px solid rgba(232,0,45,0.3); }
+.compound-pill.MEDIUM { background: rgba(255,214,0,0.15); color: var(--yellow); border: 1px solid rgba(255,214,0,0.3); }
+.compound-pill.HARD   { background: rgba(235,235,235,0.1); color: var(--white); border: 1px solid rgba(235,235,235,0.2); }
+.compound-pill.INTER  { background: rgba(0,200,80,0.15); color: #00c850; border: 1px solid rgba(0,200,80,0.3); }
+
+.delta-positive { color: #00d46a; }
+.delta-negative { color: var(--red); }
+
+/* ═══════════ REPLAY TIMELINE ═══════════ */
+.timeline-track {
+  position: relative;
+  height: 12px;
+  background: var(--surf1);
+  border-radius: 6px;
+  margin: 1rem 0;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.timeline-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: linear-gradient(to right, var(--lime), #89ff00);
+  border-radius: 6px;
+  width: 30%;
+  transition: width 0.2s ease;
+}
+
+.timeline-thumb {
+  position: absolute;
+  top: 50%; right: 0;
+  transform: translate(50%, -50%);
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--lime);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 8px var(--lime-glow);
+  cursor: grab;
+}
+
+.timeline-labels {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-m); font-size: 0.65rem;
+  color: var(--muted); margin-top: 0.35rem;
+}
+
+/* pit markers */
+.pit-markers {
+  position: relative; height: 24px;
+  display: flex; align-items: center;
+}
+
+.pit-marker {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--orange);
+  border-radius: 1px;
+}
+
+.pit-marker::after {
+  content: attr(data-tip);
+  position: absolute; top: -22px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--orange);
+  color: #000;
+  font-family: var(--font-m); font-size: 0.58rem;
+  padding: 0.1rem 0.3rem; border-radius: 3px;
+  white-space: nowrap;
+}
+
+.pit-marker.agent { background: var(--lime); }
+.pit-marker.agent::after { background: var(--lime); }
+
+/* ═══════════ SHAP BAR CHART ═══════════ */
+.shap-bars { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.shap-row { display: flex; align-items: center; gap: 0.75rem; }
+
+.shap-label {
+  font-family: var(--font-m); font-size: 0.7rem;
+  color: var(--white); width: 160px; flex-shrink: 0; text-align: right;
+}
+
+.shap-bar-track {
+  flex: 1; height: 8px; background: var(--surf1);
+  border-radius: 4px; overflow: hidden;
+}
+
+.shap-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(to right, rgba(184,255,0,0.4), var(--lime));
+  transition: width 1s ease;
+  width: 0%;
+}
+
+.shap-bar-fill.negative {
+  background: linear-gradient(to right, var(--red), rgba(232,0,45,0.4));
+}
+
+.shap-val {
+  font-family: var(--font-m); font-size: 0.68rem;
+  color: var(--muted); width: 52px; text-align: left; flex-shrink: 0;
+}
+
+/* ═══════════ POSITION COMPARISON ═══════════ */
+.comparison-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.25rem; margin-bottom: 1.25rem;
+}
+
+.comparison-side {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.25rem 1.5rem;
+}
+
+.comparison-side.agent { border-color: rgba(184,255,0,0.3); }
+.comparison-side.actual { border-color: rgba(255,108,0,0.3); }
+
+.cs-header {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem;
+}
+
+.cs-badge {
+  display: inline-block; padding: 0.2rem 0.6rem;
+  border-radius: 4px; font-family: var(--font-m);
+  font-size: 0.65rem; letter-spacing: 0.1em;
+  text-transform: uppercase; font-weight: 500;
+}
+
+.cs-badge.agent { background: var(--lime-dim); color: var(--lime); border: 1px solid rgba(184,255,0,0.3); }
+.cs-badge.actual { background: rgba(255,108,0,0.1); color: var(--orange); border: 1px solid rgba(255,108,0,0.3); }
+
+.cs-title {
+  font-family: var(--font-d); font-weight: 600; font-size: 0.88rem;
+  letter-spacing: 0.06em; color: var(--white);
+}
+
+/* ═══════════ AI EXPLAIN PANEL ═══════════ */
+.ai-explain-panel {
+  background: var(--surf0);
+  border: 1px solid rgba(184,255,0,0.25);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.25rem;
+  display: none;
+  animation: panelIn 0.3s ease;
+}
+
+.ai-explain-panel.open { display: block; }
+
+.aep-header {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem;
+}
+
+.aep-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); animation: pulse-dot 1.8s infinite; }
+
+.aep-title {
+  font-family: var(--font-d); font-weight: 700; font-size: 0.82rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--lime);
+}
+
+.aep-body {
+  font-size: 0.88rem; color: var(--white); line-height: 1.7;
+}
+
+.aep-typing {
+  display: flex; gap: 4px; align-items: center;
+}
+
+.aep-typing span {
+  width: 6px; height: 6px; background: var(--muted);
+  border-radius: 50%; animation: typing 1.2s infinite;
+}
+.aep-typing span:nth-child(2){animation-delay:.2s}
+.aep-typing span:nth-child(3){animation-delay:.4s}
+
+@keyframes typing {
+  0%,100%{transform:translateY(0);opacity:.4}
+  50%{transform:translateY(-4px);opacity:1}
+}
+
+/* ═══════════ SIMULATOR ═══════════ */
+.sim-grid {
+  display: grid; grid-template-columns: 380px 1fr;
+  gap: 1.5rem;
+}
+
+.sim-inputs {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+}
+
+.sim-title {
+  font-family: var(--font-d); font-weight: 700; font-size: 1rem;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--white); margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+}
+
+.sim-field { margin-bottom: 1rem; }
+
+.sim-field label {
+  display: block;
+  font-family: var(--font-m); font-size: 0.68rem;
+  letter-spacing: 0.1em; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 0.35rem;
+}
+
+.sim-field input, .sim-field select {
+  width: 100%;
+  background: var(--surf1); border: 1px solid var(--border);
+  color: var(--white); font-family: var(--font-m); font-size: 0.82rem;
+  padding: 0.6rem 0.85rem; border-radius: 8px;
+  outline: none; transition: border-color 0.2s;
+  appearance: none;
+}
+
+.sim-field input:focus, .sim-field select:focus { border-color: var(--lime); }
+
+.sim-field input[type="range"] {
+  padding: 0; height: 6px;
+  background: var(--surf2); cursor: pointer;
+  border-radius: 3px;
+  accent-color: var(--lime);
+}
+
+.sim-range-row { display: flex; justify-content: space-between; margin-top: 0.2rem; }
+.sim-range-val { font-family: var(--font-m); font-size: 0.68rem; color: var(--lime); }
+.sim-range-bounds { font-family: var(--font-m); font-size: 0.62rem; color: var(--muted); }
+
+.btn-simulate {
+  width: 100%; padding: 0.85rem;
+  background: var(--lime); color: #060c1a;
+  font-family: var(--font-d); font-weight: 700;
+  font-size: 0.92rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: none; border-radius: 8px;
+  cursor: pointer; transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  margin-top: 1.25rem;
+}
+
+.btn-simulate:hover {
+  background: #d4ff33; transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(184,255,0,0.35);
+}
+
+.sim-output {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+  display: flex; flex-direction: column; gap: 1.25rem;
+}
+
+.sim-result-badge {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-family: var(--font-d); font-weight: 700;
+  font-size: 1.1rem; letter-spacing: 0.08em;
+}
+
+.sim-result-badge.pit { background: rgba(184,255,0,0.12); color: var(--lime); border: 1px solid rgba(184,255,0,0.3); }
+.sim-result-badge.stay { background: rgba(255,108,0,0.1); color: var(--orange); border: 1px solid rgba(255,108,0,0.3); }
+
+.confidence-bar-wrap { margin-top: 0.5rem; }
+
+.confidence-bar {
+  height: 6px; background: var(--surf2); border-radius: 3px; overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, rgba(184,255,0,0.4), var(--lime));
+  transition: width 0.8s ease;
+}
+
+/* ═══════════ PIT WINDOW ═══════════ */
+.pit-window-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+  gap: 1rem; margin-bottom: 1.25rem;
+}
+
+.pit-window-card {
+  background: var(--surf0); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.pit-window-card:hover {
+  border-color: rgba(184,255,0,0.35);
+  box-shadow: 0 0 14px var(--lime-glow);
+}
+
+.pwc-driver {
+  font-family: var(--font-d); font-weight: 700; font-size: 1rem;
+  letter-spacing: 0.06em; color: var(--white); margin-bottom: 0.25rem;
+}
+
+.pwc-window {
+  font-family: var(--font-m); font-size: 0.75rem; color: var(--lime);
+  margin-bottom: 0.5rem;
+}
+
+.pwc-bar {
+  height: 6px; background: var(--surf1); border-radius: 3px; position: relative;
+}
+
+.pwc-range {
+  position: absolute; top: 0; bottom: 0; border-radius: 3px;
+  background: linear-gradient(to right, rgba(184,255,0,0.3), var(--lime));
+  transition: all 0.5s ease;
+}
+
+/* ═══════════ AI FLOATING PANEL ═══════════ */
+.ai-panel {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  z-index: 200; display: flex; flex-direction: column;
+  align-items: flex-end; gap: 0.75rem;
+}
+
+.ai-bubble {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--lime); color: #060c1a; border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 20px rgba(184,255,0,0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.ai-bubble:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(184,255,0,0.6); }
+
+.ai-window {
+  width: 340px; background: var(--surf0);
+  border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden; display: none; flex-direction: column;
+  box-shadow: 0 16px 56px rgba(0,0,0,0.5);
+  animation: slideUpPanel 0.3s ease;
+}
+
+.ai-window.open { display: flex; }
+
+@keyframes slideUpPanel { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+.ai-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border);
+  background: var(--surf1);
+}
+
+.ai-title-row { display: flex; align-items: center; gap: 0.5rem; }
+.ai-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); animation: pulse-dot 1.8s infinite; }
+
+.ai-title-text {
+  font-family: var(--font-d); font-weight: 700; font-size: 0.82rem;
+  letter-spacing: 0.08em; color: var(--white);
+}
+
+.ai-ctx {
+  font-family: var(--font-m); font-size: 0.6rem;
+  color: var(--muted); margin-top: 1px;
+}
+
+.ai-close {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 1rem; transition: color 0.2s;
+}
+.ai-close:hover { color: var(--white); }
+
+.ai-messages {
+  flex: 1; min-height: 160px; max-height: 240px;
+  overflow-y: auto; padding: 0.9rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.65rem;
+}
+
+.ai-msg {
+  font-size: 0.82rem; line-height: 1.6; max-width: 88%;
+  padding: 0.55rem 0.8rem; border-radius: 9px;
+}
+
+.ai-msg.assistant {
+  background: var(--surf1); border: 1px solid var(--border);
+  color: var(--white); align-self: flex-start; border-bottom-left-radius: 3px;
+}
+
+.ai-msg.user {
+  background: rgba(184,255,0,0.1); border: 1px solid rgba(184,255,0,0.2);
+  color: var(--white); align-self: flex-end; border-bottom-right-radius: 3px;
+}
+
+.ai-typing {
+  display: flex; gap: 4px; align-items: center;
+  padding: 0.55rem 0.8rem; background: var(--surf1);
+  border: 1px solid var(--border); border-radius: 9px;
+  border-bottom-left-radius: 3px; align-self: flex-start;
+}
+
+.ai-typing span { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; animation: typing 1.2s infinite; }
+.ai-typing span:nth-child(2){animation-delay:.2s} .ai-typing span:nth-child(3){animation-delay:.4s}
+
+.ai-input-row { display: flex; border-top: 1px solid var(--border); }
+
+.ai-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--white); font-family: var(--font-b); font-size: 0.82rem;
+  padding: 0.75rem 1.1rem;
+}
+
+.ai-input::placeholder { color: var(--muted); }
+
+.ai-send {
+  background: none; border: none; border-left: 1px solid var(--border);
+  color: var(--lime); cursor: pointer; padding: 0 0.9rem;
+  transition: background 0.2s;
+}
+
+.ai-send:hover { background: var(--lime-dim); }
+
+/* ═══════════ RESPONSIVE ═══════════ */
+@media (max-width: 900px) {
+  :root { --sidebar-w: 0px; }
+  aside.sidebar { display: none; }
+  .chart-grid-2, .comparison-row, .sim-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TOP NAV ═══════════ -->
+<nav class="top-nav">
+  <div class="top-nav-left">
+    <a href="index.html" class="nav-logo"><span class="nav-dot"></span>STRATORACE</a>
+    <span class="nav-breadcrumb">/ <span id="breadcrumbTab">Strategy Replay</span></span>
+  </div>
+  <div class="top-nav-right">
+    <ul class="nav-links-top">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="dashboard.html" class="active">Dashboard</a></li>
+      <li><a href="model.html">Model</a></li>
+      <li><a href="simulator.html">Simulator</a></li>
+      <li><a href="about.html">About</a></li>
+    </ul>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Year</span>
+        <select class="filter-select" id="filterYear">
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">GP</span>
+        <select class="filter-select" id="filterGP">
+          <option value="British">British</option>
+          <option value="Monaco">Monaco</option>
+          <option value="Monza">Monza</option>
+          <option value="Silverstone">Silverstone</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Driver</span>
+        <select class="filter-select" id="filterDriver">
+          <option value="ALL">All</option>
+          <option value="VER">VER</option>
+          <option value="HAM">HAM</option>
+          <option value="NOR">NOR</option>
+          <option value="LEC">LEC</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ LAYOUT ═══════════ -->
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-icon active" data-tab="0" data-tip="Strategy Replay">🔁</div>
+  <div class="sidebar-icon" data-tab="1" data-tip="Tyre Degradation">📉</div>
+  <div class="sidebar-icon" data-tab="2" data-tip="Agent vs Actual">⚡</div>
+  <div class="sidebar-icon" data-tab="3" data-tip="SHAP">🔍</div>
+  <div class="sidebar-icon" data-tab="4" data-tip="Model Metrics">📊</div>
+  <div class="sidebar-icon" data-tab="5" data-tip="Pit Window">🏁</div>
+</aside>
+
+<!-- MAIN -->
+<main class="content">
+
+  <!-- ═══ TAB 0: STRATEGY REPLAY ═══ -->
+  <div class="tab-panel active" id="tab-0">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 1 / 7 · Strategy Replay</p>
+        <h1 class="panel-title">Race Strategy Timeline</h1>
+        <p class="panel-sub">Agent pit calls vs actual strategy — lap-by-lap position delta</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" id="prevTab">‹</button>
+          <span class="tab-counter" id="tabCounter">1 / 7</span>
+          <button class="tab-arrow" id="nextTab">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(0)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">Total Laps</div>
+        <div class="metric-val white">52</div>
+        <div class="metric-sub">2024 British GP</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Agent Pit Stops</div>
+        <div class="metric-val">2</div>
+        <div class="metric-sub">Laps 18, 37</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Actual Pit Stops</div>
+        <div class="metric-val orange">2</div>
+        <div class="metric-sub">Laps 21, 40</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Position Delta</div>
+        <div class="metric-val">+1.4</div>
+        <div class="metric-sub">Agent advantage</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Time Saved</div>
+        <div class="metric-val">3.2s</div>
+        <div class="metric-sub">vs actual strategy</div>
+      </div>
+    </div>
+
+    <!-- Timeline slider -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-card-title">Lap-by-Lap Timeline</div>
+          <div class="chart-card-sub">Drag to scrub · Orange = actual pits · Lime = agent pits</div>
+        </div>
+        <span id="lapDisplay" style="font-family:var(--font-m);font-size:0.78rem;color:var(--lime)">Lap 15 / 52</span>
+      </div>
+
+      <div class="pit-markers" id="pitMarkers">
+        <div class="pit-marker" data-tip="Actual L21" style="left:38.5%"></div>
+        <div class="pit-marker" data-tip="Actual L40" style="left:73.1%"></div>
+        <div class="pit-marker agent" data-tip="Agent L18" style="left:32.7%"></div>
+        <div class="pit-marker agent" data-tip="Agent L37" style="left:69.2%"></div>
+      </div>
+
+      <div class="timeline-track" id="timelineTrack">
+        <div class="timeline-fill" id="timelineFill"></div>
+        <div class="timeline-thumb" id="timelineThumb"></div>
+      </div>
+      <div class="timeline-labels">
+        <span>Lap 1</span><span>Lap 13</span><span>Lap 26</span><span>Lap 39</span><span>Lap 52</span>
+      </div>
+
+      <div class="chart-wrap" style="margin-top:1rem;">
+        <canvas id="replayChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Strategy table -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Stint Breakdown</div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Stint</th><th>Driver</th><th>Compound</th><th>Lap In</th><th>Lap Out</th><th>Tyre Age</th><th>Stint Δ Avg</th>
+          </tr>
+        </thead>
+        <tbody id="stintTable">
+          <tr>
+            <td>1</td><td>NOR</td>
+            <td><span class="compound-pill MEDIUM">MEDIUM</span></td>
+            <td>1</td><td>21</td><td>21 laps</td>
+            <td class="delta-negative">+0.32s</td>
+          </tr>
+          <tr>
+            <td>2</td><td>NOR</td>
+            <td><span class="compound-pill HARD">HARD</span></td>
+            <td>22</td><td>40</td><td>19 laps</td>
+            <td class="delta-positive">-0.11s</td>
+          </tr>
+          <tr>
+            <td>3</td><td>NOR</td>
+            <td><span class="compound-pill SOFT">SOFT</span></td>
+            <td>41</td><td>52</td><td>12 laps</td>
+            <td class="delta-positive">-0.44s</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-0">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — Strategy Replay</span></div>
+      <div class="aep-body" id="aiText-0"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 1: TYRE DEGRADATION ═══ -->
+  <div class="tab-panel" id="tab-1">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 2 / 7 · Tyre Degradation</p>
+        <h1 class="panel-title">Compound Degradation Curves</h1>
+        <p class="panel-sub">LapTime vs TyreAge per compound and driver — 2024 British GP</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" onclick="switchTab(0)">‹</button>
+          <span class="tab-counter">2 / 7</span>
+          <button class="tab-arrow" onclick="switchTab(2)">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(1)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">SOFT deg/lap</div>
+        <div class="metric-val">+0.18s</div>
+        <div class="metric-sub">avg after lap 8</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">MEDIUM deg/lap</div>
+        <div class="metric-val yellow">+0.09s</div>
+        <div class="metric-sub">avg after lap 12</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">HARD deg/lap</div>
+        <div class="metric-val white">+0.05s</div>
+        <div class="metric-sub">avg after lap 14</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Optimal SOFT window</div>
+        <div class="metric-val">≤14</div>
+        <div class="metric-sub">laps before cliff</div>
+      </div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Deg Curves by Compound</div>
+            <div class="chart-card-sub">Lap time (s) vs tyre age</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="degChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Per-Driver Stint Comparison</div>
+            <div class="chart-card-sub">LapTimeDelta across stints</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="driverDegChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Tyre Age vs LapTimeDelta — All Drivers</div>
+        <div class="chart-card-sub">Scatter across the full race</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="scatterDeg"></canvas></div>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-1">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — Tyre Degradation</span></div>
+      <div class="aep-body" id="aiText-1"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 2: AGENT VS ACTUAL ═══ -->
+  <div class="tab-panel" id="tab-2">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 3 / 7 · Agent vs Actual</p>
+        <h1 class="panel-title">PPO Agent vs Human Strategy</h1>
+        <p class="panel-sub">Side-by-side decision comparison across all drivers</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" onclick="switchTab(1)">‹</button>
+          <span class="tab-counter">3 / 7</span>
+          <button class="tab-arrow" onclick="switchTab(3)">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(2)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="comparison-row">
+      <div class="comparison-side agent">
+        <div class="cs-header">
+          <span class="cs-badge agent">PPO Agent</span>
+          <span class="cs-title">Optimal Decisions</span>
+        </div>
+        <div class="metrics-row" style="margin-bottom:0">
+          <div class="metric-card">
+            <div class="metric-label">Correct calls</div>
+            <div class="metric-val">68%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Avg position gain</div>
+            <div class="metric-val">+1.2</div>
+          </div>
+        </div>
+      </div>
+      <div class="comparison-side actual">
+        <div class="cs-header">
+          <span class="cs-badge actual">Actual Teams</span>
+          <span class="cs-title">Observed Strategy</span>
+        </div>
+        <div class="metrics-row" style="margin-bottom:0">
+          <div class="metric-card">
+            <div class="metric-label">Optimal rate</div>
+            <div class="metric-val orange">51%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Avg position gain</div>
+            <div class="metric-val orange">+0.4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Agent vs Actual — Position Delta Per Race</div>
+        <div class="chart-card-sub">Positive = agent better · Negative = actual better</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="avaChart"></canvas></div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Decision Agreement Rate</div></div>
+        <div class="chart-wrap"><canvas id="agreementChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Time Saved by Agent (s)</div></div>
+        <div class="chart-wrap"><canvas id="timeSavedChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-2">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — Agent vs Actual</span></div>
+      <div class="aep-body" id="aiText-2"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 3: SHAP ═══ -->
+  <div class="tab-panel" id="tab-3">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 4 / 7 · SHAP Explainability</p>
+        <h1 class="panel-title">Feature Importance</h1>
+        <p class="panel-sub">What drives each pit decision — ranked SHAP values</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" onclick="switchTab(2)">‹</button>
+          <span class="tab-counter">4 / 7</span>
+          <button class="tab-arrow" onclick="switchTab(4)">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(3)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Global SHAP Feature Importance</div>
+        <div class="chart-card-sub">Mean |SHAP| value — higher = more influential</div>
+      </div>
+      <div class="shap-bars" id="shapBars" style="padding: 0.5rem 0.5rem 0.5rem 0;"></div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">SHAP Beeswarm Proxy</div></div>
+        <div class="chart-wrap"><canvas id="shapScatter"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Decision Confidence Distribution</div></div>
+        <div class="chart-wrap"><canvas id="confChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-3">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — SHAP Explainability</span></div>
+      <div class="aep-body" id="aiText-3"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 4: MODEL METRICS ═══ -->
+  <div class="tab-panel" id="tab-4">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 5 / 6 · Model Metrics</p>
+        <h1 class="panel-title">Training & Evaluation</h1>
+        <p class="panel-sub">PPO training curves, reward, policy entropy and validation performance</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" onclick="switchTab(3)">‹</button>
+          <span class="tab-counter">5 / 6</span>
+          <button class="tab-arrow" onclick="switchTab(5)">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(4)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card"><div class="metric-label">Total Episodes</div><div class="metric-val white">12,400</div></div>
+      <div class="metric-card"><div class="metric-label">Final Reward</div><div class="metric-val">+284</div></div>
+      <div class="metric-card"><div class="metric-label">Policy Loss</div><div class="metric-val yellow">0.012</div></div>
+      <div class="metric-card"><div class="metric-label">Value Loss</div><div class="metric-val yellow">0.034</div></div>
+      <div class="metric-card"><div class="metric-label">Val Accuracy</div><div class="metric-val">73.4%</div></div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Cumulative Reward</div><div class="chart-card-sub">Per training episode</div></div>
+        <div class="chart-wrap"><canvas id="rewardChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Policy Entropy</div><div class="chart-card-sub">Exploration over time</div></div>
+        <div class="chart-wrap"><canvas id="entropyChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Policy Loss</div></div>
+        <div class="chart-wrap"><canvas id="pLossChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><div class="chart-card-title">Value Loss</div></div>
+        <div class="chart-wrap"><canvas id="vLossChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-4">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — Model Metrics</span></div>
+      <div class="aep-body" id="aiText-4"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB 5: PIT WINDOW ═══ -->
+  <div class="tab-panel" id="tab-5">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <p class="panel-eyebrow">Tab 6 / 6 · Pit Window</p>
+        <h1 class="panel-title">Optimal Pit Windows</h1>
+        <p class="panel-sub">Recommended pit lap ranges per driver based on current tyre model</p>
+      </div>
+      <div class="panel-actions">
+        <div class="tab-nav-arrows">
+          <button class="tab-arrow" onclick="switchTab(4)">‹</button>
+          <span class="tab-counter">6 / 6</span>
+          <button class="tab-arrow" onclick="switchTab(0)">›</button>
+        </div>
+        <button class="btn-ai-explain" onclick="triggerAiExplain(5)">⚡ AI Explain</button>
+      </div>
+    </div>
+
+    <div class="pit-window-grid" id="pitWindowGrid"></div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Optimal Pit Window — All Drivers</div>
+        <div class="chart-card-sub">Recommended lap range (earliest – latest)</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="pitWindowChart"></canvas></div>
+    </div>
+
+    <div class="ai-explain-panel" id="aiPanel-6">
+      <div class="aep-header"><div class="aep-dot"></div><span class="aep-title">StratoRace AI — Pit Window</span></div>
+      <div class="aep-body" id="aiText-5"></div>
+    </div>
+  </div>
+
+</main>
+</div><!-- /layout -->
+
+<!-- ═══════════ AI FLOATING PANEL ═══════════ -->
+<div class="ai-panel">
+  <div class="ai-window" id="aiWindow">
+    <div class="ai-header">
+      <div>
+        <div class="ai-title-row">
+          <div class="ai-live-dot"></div>
+          <span class="ai-title-text">STRATORACE AI</span>
+        </div>
+        <div class="ai-ctx" id="aiCtx">Dashboard · Strategy Replay</div>
+      </div>
+      <button class="ai-close" id="aiClose">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg assistant">
+        Ask me anything about the model, tyre strategy, or what you're seeing in the current tab.
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="aiInput" type="text" placeholder="Ask about this view…" autocomplete="off"/>
+      <button class="ai-send" id="aiSend">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <button class="ai-bubble" id="aiBubble">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ═══════════ SCRIPTS ═══════════ -->
+<script>
+/* cursor glow */
+document.addEventListener('mousemove', e => {
+  document.documentElement.style.setProperty('--cx', e.clientX+'px');
+  document.documentElement.style.setProperty('--cy', e.clientY+'px');
+});
+
+/* ─── Sidebar scroll-collapse ─── */
+(function(){
+  const sidebar = document.querySelector('aside.sidebar');
+  let lastY = window.scrollY;
+  let ticking = false;
+
+  window.addEventListener('scroll', () => {
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const currentY = window.scrollY;
+      const scrolledDown = currentY > lastY;
+      const atTop = currentY < 60;
+
+      if(atTop || !scrolledDown) {
+        // scrolling up or at top — expand sidebar
+        sidebar.style.transform = 'translateX(0)';
+        sidebar.style.opacity = '1';
+      } else {
+        // scrolling down — collapse sidebar
+        sidebar.style.transform = 'translateX(-100%)';
+        sidebar.style.opacity = '0';
+      }
+      lastY = currentY;
+      ticking = false;
+    });
+  }, { passive: true });
+
+  // smooth transition on the sidebar itself
+  sidebar.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+})();
+
+/* ─────────────────────────────────────
+   TAB SYSTEM
+───────────────────────────────────── */
+const TAB_NAMES = [
+  'Strategy Replay','Tyre Degradation','Agent vs Actual',
+  'SHAP Explainability','Model Metrics','Pit Window'
+];
+
+let currentTab = 0;
+
+function switchTab(n) {
+  const panels = document.querySelectorAll('.tab-panel');
+  const icons  = document.querySelectorAll('.sidebar-icon');
+  panels.forEach((p,i) => { p.classList.toggle('active', i===n); });
+  icons.forEach((ic,i) => {
+    ic.classList.toggle('active', i===n);
+    ic.setAttribute('data-tab', i);
+  });
+  currentTab = n;
+  document.getElementById('breadcrumbTab').textContent = TAB_NAMES[n];
+  document.getElementById('tabCounter').textContent = `${n+1} / 6`;
+  document.getElementById('aiCtx').textContent = `Dashboard · ${TAB_NAMES[n]}`;
+}
+
+document.getElementById('prevTab').addEventListener('click', () => switchTab((currentTab+5)%6));
+document.getElementById('nextTab').addEventListener('click', () => switchTab((currentTab+1)%6));
+
+document.querySelectorAll('.sidebar-icon').forEach(ic => {
+  ic.addEventListener('click', () => switchTab(+ic.dataset.tab));
+});
+
+/* ─────────────────────────────────────
+   CHART DEFAULTS
+───────────────────────────────────── */
+Chart.defaults.color = '#7a9ab5';
+Chart.defaults.borderColor = '#1e3450';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const LIME = '#B8FF00', ORANGE='#FF6C00', RED='#E8002D', YELLOW='#FFD600';
+const MUTED='#7a9ab5', SURF1='#0f1f35', SURF2='#162840';
+
+function lineOpts(color='#B8FF00') {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
+    scales: {
+      x: { grid: { color: '#1e3450' }, ticks: { maxTicksLimit: 8 } },
+      y: { grid: { color: '#1e3450' } }
+    },
+    elements: { point: { radius: 0, hoverRadius: 4 }, line: { tension: 0.35 } }
+  };
+}
+
+/* ─── REPLAY CHART ─── */
+(function(){
+  const laps = Array.from({length:52},(_,i)=>i+1);
+  const agentPos = laps.map(l => Math.max(1, 4 + Math.round(Math.sin(l/8)*1.5 + (l<18?0:l<37?-1:-0.5))));
+  const actualPos = laps.map(l => Math.max(1, 4 + Math.round(Math.sin(l/8)*1.5 + (l<21?0:l<40?-0.5:0))));
+  new Chart(document.getElementById('replayChart'), {
+    type: 'line',
+    data: {
+      labels: laps,
+      datasets: [
+        { label: 'Agent', data: agentPos, borderColor: LIME, borderWidth: 2, fill: false },
+        { label: 'Actual', data: actualPos, borderColor: ORANGE, borderWidth: 2, fill: false, borderDash: [4,3] }
+      ]
+    },
+    options: {
+      ...lineOpts(), responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true, pointStyle: 'line' } },
+        tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
+      },
+      scales: {
+        x: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Number', color: '#7a9ab5' } },
+        y: { grid: { color: '#1e3450' }, reverse: true, title: { display: true, text: 'Position', color: '#7a9ab5' }, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+})();
+
+/* timeline drag */
+(function(){
+  const track = document.getElementById('timelineTrack');
+  const fill  = document.getElementById('timelineFill');
+  const thumb = document.getElementById('timelineThumb');
+  const lapDisp = document.getElementById('lapDisplay');
+  let dragging = false;
+
+  function updatePos(x) {
+    const rect = track.getBoundingClientRect();
+    const pct  = Math.min(1, Math.max(0, (x - rect.left) / rect.width));
+    fill.style.width = (pct*100)+'%';
+    thumb.style.left = (pct*100)+'%';
+    thumb.style.right = 'auto';
+    thumb.style.transform = 'translate(-50%, -50%)';
+    const lap = Math.round(pct * 51) + 1;
+    lapDisp.textContent = `Lap ${lap} / 52`;
+  }
+
+  track.addEventListener('mousedown', e => { dragging=true; updatePos(e.clientX); });
+  document.addEventListener('mousemove', e => { if(dragging) updatePos(e.clientX); });
+  document.addEventListener('mouseup', () => dragging=false);
+  track.addEventListener('touchstart', e => { dragging=true; updatePos(e.touches[0].clientX); });
+  document.addEventListener('touchmove', e => { if(dragging) updatePos(e.touches[0].clientX); });
+  document.addEventListener('touchend', () => dragging=false);
+})();
+
+/* ─── DEG CURVES ─── */
+(function(){
+  const age = Array.from({length:40},(_,i)=>i+1);
+  const soft   = age.map(a => 89 + 0.18*a + (a>14?0.04*Math.pow(a-14,1.5):0) + (Math.random()-.5)*.08);
+  const medium = age.map(a => 91 + 0.09*a + (a>20?0.025*Math.pow(a-20,1.4):0) + (Math.random()-.5)*.06);
+  const hard   = age.map(a => 93 + 0.05*a + (a>28?0.015*Math.pow(a-28,1.3):0) + (Math.random()-.5)*.05);
+  new Chart(document.getElementById('degChart'), {
+    type:'line', data:{
+      labels:age,
+      datasets:[
+        {label:'SOFT', data:soft, borderColor:RED, borderWidth:2, fill:false},
+        {label:'MEDIUM', data:medium, borderColor:YELLOW, borderWidth:2, fill:false},
+        {label:'HARD', data:hard, borderColor:'#EBEBEB', borderWidth:2, fill:false}
+      ]
+    }, options:{
+      ...lineOpts(), responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#7a9ab5',usePointStyle:true}},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'},title:{display:true,text:'Tyre Age (laps)',color:'#7a9ab5'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'Lap Time (s)',color:'#7a9ab5'}}}
+    }
+  });
+
+  const drivers = ['NOR','VER','HAM','LEC','PER'];
+  const colors  = [LIME, ORANGE, '#00aaff', YELLOW, RED];
+  new Chart(document.getElementById('driverDegChart'), {
+    type:'line', data:{
+      labels:Array.from({length:52},(_,i)=>i+1),
+      datasets: drivers.map((d,i)=>({
+        label:d, data:Array.from({length:52},()=>(Math.random()-.3)*.8),
+        borderColor:colors[i], borderWidth:1.5, fill:false, pointRadius:0
+      }))
+    }, options:{
+      ...lineOpts(), responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#7a9ab5',usePointStyle:true,boxWidth:20}},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'LapTimeDelta (s)',color:'#7a9ab5'}}}
+    }
+  });
+
+  const scatterPts = Array.from({length:300},()=>({
+    x: Math.round(Math.random()*38)+1,
+    y: +((-0.2 + Math.random()*.5)*0.8).toFixed(3)
+  }));
+  new Chart(document.getElementById('scatterDeg'), {
+    type:'scatter', data:{datasets:[{label:'Lap',data:scatterPts,backgroundColor:'rgba(184,255,0,0.25)',pointRadius:3}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'},title:{display:true,text:'Tyre Age (laps)',color:'#7a9ab5'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'LapTimeDelta (s)',color:'#7a9ab5'}}}
+    }
+  });
+})();
+
+/* ─── AGENT VS ACTUAL ─── */
+(function(){
+  const races = ['BRT','MON','SPA','GBR','HUN','BEL','ITA','SIN','JPN','USA','MEX','ABU'];
+  const deltas = [1.2,-0.3,0.8,1.4,-0.1,0.6,2.0,-0.5,1.1,0.3,1.7,0.9];
+  new Chart(document.getElementById('avaChart'), {
+    type:'bar', data:{
+      labels:races,
+      datasets:[{
+        label:'Position Delta',
+        data:deltas,
+        backgroundColor: deltas.map(d=>d>=0?'rgba(184,255,0,0.5)':'rgba(232,0,45,0.45)'),
+        borderColor: deltas.map(d=>d>=0?LIME:RED),
+        borderWidth:1
+      }]
+    }, options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'Position Δ',color:'#7a9ab5'}}}
+    }
+  });
+
+  new Chart(document.getElementById('agreementChart'), {
+    type:'doughnut', data:{
+      labels:['Agree','Disagree'],
+      datasets:[{data:[68,32],backgroundColor:['rgba(184,255,0,0.5)','rgba(30,52,80,0.8)'],borderColor:[LIME,'#1e3450'],borderWidth:2}]
+    }, options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#7a9ab5'}},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}}
+    }
+  });
+
+  new Chart(document.getElementById('timeSavedChart'), {
+    type:'bar', data:{
+      labels:races,
+      datasets:[{label:'Time Saved (s)',data:races.map(()=>+(Math.random()*5-1).toFixed(1)),backgroundColor:'rgba(255,108,0,0.4)',borderColor:ORANGE,borderWidth:1}]
+    }, options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'}}}
+    }
+  });
+})();
+
+/* ─── SHAP BARS ─── */
+(function(){
+  const features = [
+    { name:'TyreAge', val:0.82, neg:false },
+    { name:'LapTimeDelta', val:0.71, neg:false },
+    { name:'GapAhead', val:0.64, neg:false },
+    { name:'LapsRemaining', val:0.55, neg:false },
+    { name:'Compound_SOFT', val:0.48, neg:false },
+    { name:'TrackTemp', val:0.29, neg:false },
+    { name:'Compound_HARD', val:0.22, neg:true },
+    { name:'Rainfall', val:0.18, neg:true },
+    { name:'Position', val:0.14, neg:false },
+    { name:'SpeedST', val:0.09, neg:true }
+  ];
+
+  const container = document.getElementById('shapBars');
+  features.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'shap-row';
+    row.innerHTML = `
+      <span class="shap-label">${f.name}</span>
+      <div class="shap-bar-track">
+        <div class="shap-bar-fill${f.neg?' negative':''}" style="width:0%" data-target="${f.val*100}%"></div>
+      </div>
+      <span class="shap-val">${f.val.toFixed(2)}</span>
+    `;
+    container.appendChild(row);
+  });
+
+  // animate on tab open
+  function animateShap() {
+    document.querySelectorAll('.shap-bar-fill').forEach(el => {
+      setTimeout(() => { el.style.width = el.dataset.target; }, 100);
+    });
+  }
+
+  // trigger when tab 3 opens
+  const shapObs = new MutationObserver(() => {
+    if(document.getElementById('tab-3').classList.contains('active')) animateShap();
+  });
+  shapObs.observe(document.getElementById('tab-3'), {attributes:true,attributeFilter:['class']});
+
+  new Chart(document.getElementById('shapScatter'), {
+    type:'scatter',
+    data:{datasets:[
+      {label:'High value',data:Array.from({length:80},()=>({x:+(Math.random()*0.9).toFixed(2),y:Math.round(Math.random()*9)})),backgroundColor:'rgba(184,255,0,0.35)',pointRadius:4},
+      {label:'Low value',data:Array.from({length:80},()=>({x:-(Math.random()*0.5).toFixed(2),y:Math.round(Math.random()*9)})),backgroundColor:'rgba(232,0,45,0.35)',pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},scales:{x:{grid:{color:'#1e3450'},title:{display:true,text:'SHAP Value',color:'#7a9ab5'}},y:{grid:{color:'#1e3450'},ticks:{stepSize:1,callback:v=>['TyreAge','LTDelta','GapAhd','LapsRem','C.SOFT','TrTemp','C.HARD','Rain','Pos','Speed'][v]||''},title:{display:false}}}}
+  });
+
+  new Chart(document.getElementById('confChart'), {
+    type:'bar',
+    data:{labels:['<50%','50–60%','60–70%','70–80%','80–90%','>90%'],datasets:[{label:'Count',data:[12,24,38,61,88,142],backgroundColor:'rgba(184,255,0,0.4)',borderColor:LIME,borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'}}}}
+  });
+})();
+
+/* ─── TRAINING METRICS ─── */
+(function(){
+  const eps = Array.from({length:100},(_,i)=>(i+1)*124);
+  const reward = eps.map((_,i)=>-180 + 460*(1-Math.exp(-i/25)) + (Math.random()-.5)*18);
+  const entropy = eps.map((_,i)=>1.6*Math.exp(-i/40) + 0.1 + (Math.random()-.5)*0.05);
+  const ploss = eps.map((_,i)=>0.18*Math.exp(-i/30) + 0.008 + (Math.random()-.5)*0.004);
+  const vloss = eps.map((_,i)=>0.55*Math.exp(-i/28) + 0.025 + (Math.random()-.5)*0.01);
+
+  [['rewardChart',reward,LIME],['entropyChart',entropy,ORANGE],['pLossChart',ploss,YELLOW],['vLossChart',vloss,'#00aaff']].forEach(([id,data,color])=>{
+    new Chart(document.getElementById(id),{
+      type:'line',data:{labels:eps.map(e=>e),datasets:[{data,borderColor:color,borderWidth:1.8,fill:true,backgroundColor:color.replace(')',',0.06)').replace('#','rgba(').replace(/([a-f\d]{2})/gi,m=>parseInt(m,16)+','),pointRadius:0}]},
+      options:{...lineOpts(color),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}}}
+    });
+  });
+})();
+
+/* ─── SIMULATOR ─── */
+function runSimulation() {
+  const compound = document.getElementById('simCompound').value;
+  const tyreAge  = +document.getElementById('simTyreAge').value;
+  const lap      = +document.getElementById('simLap').value;
+  const total    = +document.getElementById('simTotalLaps').value;
+  const pos      = +document.getElementById('simPos').value;
+  const gap      = +document.getElementById('simGap').value;
+
+  // Heuristic decision logic
+  const lapsLeft = total - lap;
+  const degScore = tyreAge * (compound==='SOFT'?0.18:compound==='MEDIUM'?0.09:0.05);
+  const urgency  = degScore + (lapsLeft < 15 ? 2 : 0) + (gap > 10 ? 1.5 : 0);
+  const pit      = urgency > 3.2 || (tyreAge > 28 && compound==='SOFT') || (tyreAge > 34 && compound==='MEDIUM');
+  const conf     = Math.min(97, Math.round(55 + Math.abs(urgency - 3.2)*12 + Math.random()*8));
+  const confAlt  = 100 - conf;
+
+  const output = document.getElementById('simOutput');
+  output.innerHTML = `
+    <div>
+      <div style="font-family:var(--font-m);font-size:0.65rem;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:.5rem">Agent Decision</div>
+      <div class="sim-result-badge ${pit?'pit':'stay'}">${pit?'🟢 PIT NOW':'🟡 STAY OUT'}</div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-m);font-size:0.65rem;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem">Confidence · ${conf}%</div>
+      <div class="confidence-bar">
+        <div class="confidence-fill" id="confFill" style="width:0%"></div>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-m);font-size:0.65rem;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:.6rem">Decision Factors</div>
+      <div style="display:flex;flex-direction:column;gap:.5rem;font-size:.82rem;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted)">Tyre degradation score</span>
+          <span style="color:var(--lime);font-family:var(--font-m)">${degScore.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted)">Laps remaining</span>
+          <span style="font-family:var(--font-m)">${lapsLeft}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted)">Gap ahead</span>
+          <span style="font-family:var(--font-m)">${gap}s</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted)">Recommended compound</span>
+          <span style="color:var(--lime);font-family:var(--font-m)">${pit?(compound==='SOFT'?'MEDIUM':'HARD'):compound}</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);border-top:1px solid var(--border);padding-top:.85rem">
+      Alternative: <strong style="color:var(--white)">${pit?'STAY OUT':'PIT NOW'}</strong> with ${confAlt}% confidence
+    </div>
+  `;
+
+  setTimeout(() => {
+    const fill = document.getElementById('confFill');
+    if(fill) fill.style.width = conf+'%';
+  }, 100);
+}
+
+/* ─── PIT WINDOW ─── */
+(function(){
+  const drivers = [
+    {name:'NOR',win:[15,22],compound:'MEDIUM'},
+    {name:'VER',win:[13,20],compound:'SOFT'},
+    {name:'HAM',win:[17,25],compound:'MEDIUM'},
+    {name:'LEC',win:[14,21],compound:'HARD'},
+    {name:'PER',win:[16,24],compound:'MEDIUM'},
+    {name:'SAI',win:[12,18],compound:'SOFT'},
+    {name:'ALO',win:[18,26],compound:'HARD'},
+    {name:'RUS',win:[15,22],compound:'MEDIUM'},
+  ];
+  const total = 52;
+  const grid = document.getElementById('pitWindowGrid');
+  drivers.forEach(d => {
+    const pct1 = (d.win[0]/total*100).toFixed(1);
+    const pct2 = (d.win[1]/total*100).toFixed(1);
+    const width = (d.win[1]-d.win[0])/total*100;
+    grid.innerHTML += `
+      <div class="pit-window-card">
+        <div class="pwc-driver">${d.name}</div>
+        <div class="pwc-window">Laps ${d.win[0]}–${d.win[1]} · <span class="compound-pill ${d.compound}" style="padding:.1rem .35rem;font-size:.6rem">${d.compound}</span></div>
+        <div class="pwc-bar">
+          <div class="pwc-range" style="left:${pct1}%;width:${width}%"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  new Chart(document.getElementById('pitWindowChart'), {
+    type:'bar',
+    data:{
+      labels:drivers.map(d=>d.name),
+      datasets:[
+        {label:'Pit Window Start',data:drivers.map(d=>d.win[0]),backgroundColor:'rgba(184,255,0,0.2)',borderColor:LIME,borderWidth:1,borderRadius:4},
+        {label:'Pit Window End',data:drivers.map(d=>d.win[1]),backgroundColor:'rgba(255,108,0,0.2)',borderColor:ORANGE,borderWidth:1,borderRadius:4}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#7a9ab5',usePointStyle:true}},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},
+      scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'Lap Number',color:'#7a9ab5'}}}
+    }
+  });
+})();
+
+/* ─────────────────────────────────────
+   AI SYSTEM (floating + explain panels)
+───────────────────────────────────── */
+const SYSTEM_PROMPT = `You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps). Keep answers concise (2-4 sentences). Only answer questions about StratoRace, F1 strategy, tyre behaviour, or the dashboard data. If outside scope, say: "I can only answer questions about the StratoRace project and F1 strategy model."`;
+
+const conversationHistory = [];
+
+async function callClaude(messages, system=SYSTEM_PROMPT) {
+  const response = await fetch('https://stratorace-production.up.railway.app/api/chat', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, system, messages })
+  });
+  const data = await response.json();
+  return data.text || 'No response.';
+}
+
+/* floating panel */
+const aiBubble    = document.getElementById('aiBubble');
+const aiWindow    = document.getElementById('aiWindow');
+const aiClose     = document.getElementById('aiClose');
+const aiInput     = document.getElementById('aiInput');
+const aiSend      = document.getElementById('aiSend');
+const aiMessages  = document.getElementById('aiMessages');
+
+aiBubble.addEventListener('click', ()=>{ aiWindow.classList.toggle('open'); if(aiWindow.classList.contains('open')) aiInput.focus(); });
+aiClose.addEventListener('click', ()=>aiWindow.classList.remove('open'));
+
+function addMsg(text, role) {
+  const div = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  div.textContent = text;
+  aiMessages.appendChild(div);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+  return div;
+}
+
+function showTypingIndicator(container) {
+  const div = document.createElement('div');
+  div.className = 'ai-typing';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+async function sendFloatingMsg() {
+  const text = aiInput.value.trim();
+  if(!text) return;
+  aiInput.value = '';
+  aiSend.disabled = true;
+  addMsg(text, 'user');
+  conversationHistory.push({role:'user', content:`[Context: ${TAB_NAMES[currentTab]} tab] ${text}`});
+  const typing = showTypingIndicator(aiMessages);
+  try {
+    const reply = await callClaude(conversationHistory);
+    typing.remove();
+    conversationHistory.push({role:'assistant', content:reply});
+    addMsg(reply, 'assistant');
+  } catch {
+    typing.remove();
+    addMsg('Connection error — try again.', 'assistant');
+  }
+  aiSend.disabled = false;
+  aiInput.focus();
+}
+
+aiSend.addEventListener('click', sendFloatingMsg);
+aiInput.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFloatingMsg();} });
+
+/* AI Explain per tab */
+const TAB_CONTEXTS = [
+  'The user is viewing the Strategy Replay tab showing lap-by-lap position for 2024 British GP. Agent pitted on laps 18 and 37; actual team pitted on laps 21 and 40. Agent gained approximately 1.4 positions on average.',
+  'The user is viewing the Tyre Degradation tab. Soft compound degrades ~0.18s/lap after lap 8, medium ~0.09s/lap after lap 12, hard ~0.05s/lap after lap 14.',
+  'The user is viewing Agent vs Actual comparison. PPO agent achieves 68% correct pit calls vs 51% for actual teams. Agent averages +1.2 positions per race vs +0.4 for actual teams.',
+  'The user is viewing SHAP feature importance. Top features: TyreAge (0.82), LapTimeDelta (0.71), GapAhead (0.64), LapsRemaining (0.55), Compound_SOFT (0.48).',
+  'The user is viewing Model Metrics. PPO trained over 12,400 episodes. Final reward +284. Policy loss converged to 0.012, value loss 0.034. Validation accuracy 73.4%.',
+  'The user is viewing Pit Window recommendations for all drivers in the selected race. Windows are based on tyre degradation model predictions.'
+];
+
+async function triggerAiExplain(tab) {
+  const panel = document.getElementById(`aiPanel-${tab}`);
+  const textEl = document.getElementById(`aiText-${tab}`);
+  panel.classList.add('open');
+  textEl.innerHTML = '<div class="aep-typing"><span></span><span></span><span></span></div>';
+
+  const prompt = `${TAB_CONTEXTS[tab]} Provide a concise 3-4 sentence expert analysis of what the data shows and what strategic insight it reveals. Be specific and data-driven.`;
+  try {
+    const reply = await callClaude([{role:'user',content:prompt}]);
+    textEl.textContent = reply;
+  } catch {
+    textEl.textContent = 'Unable to generate explanation — check API connection.';
+  }
+}
+</script>
+
+<script src="api.js"></script>
+<script src="dashboard-data.js"></script>
+</body>
+</html>

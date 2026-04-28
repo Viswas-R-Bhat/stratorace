@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StratoRace — About</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --bg:#060c1a; --surf0:#0a1628; --surf1:#0f1f35; --surf2:#162840;
+  --border:#1e3450; --lime:#B8FF00; --orange:#FF6C00; --red:#E8002D;
+  --yellow:#FFD600; --white:#EBEBEB; --muted:#7a9ab5;
+  --lime-glow:rgba(184,255,0,0.18); --lime-dim:rgba(184,255,0,0.07);
+  --font-d:'Rajdhani',sans-serif; --font-b:'Barlow',sans-serif; --font-m:'DM Mono',monospace;
+  --cx:50%; --cy:50%; --nav-h:56px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--white);font-family:var(--font-b);font-size:15px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(500px circle at var(--cx) var(--cy),rgba(184,255,0,0.035) 0%,transparent 70%)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}::-webkit-scrollbar-thumb:hover{background:var(--lime)}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;padding:0 3rem;background:rgba(6,12,26,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:var(--font-d);font-weight:700;font-size:1.15rem;letter-spacing:.12em;color:var(--lime);text-decoration:none;display:flex;align-items:center;gap:.4rem}
+.nav-dot{width:5px;height:5px;border-radius:50%;background:var(--lime);animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+.nav-links{display:flex;gap:2rem;list-style:none}
+.nav-links a{font-size:.78rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover,.nav-links a.active{color:var(--white)}
+
+/* PAGE LAYOUT */
+.page{margin-top:var(--nav-h);max-width:1200px;margin-left:auto;margin-right:auto;padding:0 2rem 5rem}
+
+/* HERO */
+.about-hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);margin-bottom:0;position:relative;overflow:hidden}
+.about-hero::after{content:'ABOUT';position:absolute;right:-1rem;top:50%;transform:translateY(-50%);font-family:var(--font-d);font-weight:700;font-size:10rem;color:rgba(30,52,80,0.35);letter-spacing:-.02em;pointer-events:none;line-height:1;z-index:0}
+.hero-inner{position:relative;z-index:1}
+.hero-eyebrow{font-family:var(--font-m);font-size:.7rem;letter-spacing:.25em;color:var(--lime);text-transform:uppercase;margin-bottom:.6rem}
+.hero-title{font-family:var(--font-d);font-weight:700;font-size:clamp(2.5rem,5vw,4rem);color:var(--white);line-height:1.02;margin-bottom:1rem}
+.hero-sub{font-size:1rem;color:var(--muted);max-width:580px;line-height:1.75}
+
+/* TWO COLUMN */
+.two-col{display:grid;grid-template-columns:1fr 340px;gap:3rem;margin-top:3rem}
+
+/* CONTENT SECTIONS */
+.content-section{margin-bottom:3rem}
+.cs-label{font-family:var(--font-m);font-size:.65rem;letter-spacing:.25em;color:var(--lime);text-transform:uppercase;margin-bottom:.5rem}
+.cs-title{font-family:var(--font-d);font-weight:700;font-size:1.5rem;letter-spacing:.03em;color:var(--white);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.cs-title::before{content:'';display:inline-block;width:3px;height:1em;background:var(--lime);border-radius:2px;flex-shrink:0}
+.cs-body{font-size:.92rem;color:var(--muted);line-height:1.8;padding-left:1.2rem}
+.cs-body p{margin-bottom:.9rem}
+.cs-body p:last-child{margin-bottom:0}
+.cs-body strong{color:var(--white);font-weight:500}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:2rem;margin-top:1.25rem}
+.timeline::before{content:'';position:absolute;left:.45rem;top:.5rem;bottom:.5rem;width:1px;background:linear-gradient(to bottom,var(--lime),transparent)}
+.tl-item{position:relative;margin-bottom:1.75rem}
+.tl-item:last-child{margin-bottom:0}
+.tl-dot{position:absolute;left:-2rem;top:.35rem;width:10px;height:10px;border-radius:50%;background:var(--surf0);border:2px solid var(--lime);transition:background .25s}
+.tl-item:hover .tl-dot{background:var(--lime)}
+.tl-date{font-family:var(--font-m);font-size:.65rem;letter-spacing:.1em;color:var(--lime);margin-bottom:.25rem}
+.tl-title{font-family:var(--font-d);font-weight:600;font-size:.95rem;letter-spacing:.04em;color:var(--white);margin-bottom:.25rem;text-transform:uppercase}
+.tl-desc{font-size:.82rem;color:var(--muted);line-height:1.6}
+
+/* DATA SOURCES TABLE */
+.data-table{width:100%;border-collapse:collapse;margin-top:.75rem;font-size:.82rem}
+.data-table th{background:var(--surf1);border-bottom:1px solid var(--border);padding:.6rem .9rem;text-align:left;letter-spacing:.08em;color:var(--muted);font-weight:500;text-transform:uppercase;font-size:.65rem;font-family:var(--font-m)}
+.data-table td{padding:.6rem .9rem;border-bottom:1px solid rgba(30,52,80,.5);color:var(--white)}
+.data-table tr:hover td{background:var(--surf1)}
+.data-table td:first-child{color:var(--lime);font-family:var(--font-m);font-size:.75rem}
+
+/* LIMITATIONS LIST */
+.limit-list{list-style:none;margin-top:.75rem;display:flex;flex-direction:column;gap:.75rem}
+.limit-list li{display:flex;gap:.75rem;align-items:flex-start;font-size:.88rem;color:var(--muted);line-height:1.6;padding:.75rem 1rem;background:var(--surf0);border:1px solid var(--border);border-radius:10px;transition:border-color .2s}
+.limit-list li:hover{border-color:rgba(30,52,80,1)}
+.limit-icon{flex-shrink:0;font-size:1rem;line-height:1.6}
+
+/* STACK GRID */
+.stack-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+.stack-item{background:var(--surf0);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;transition:border-color .25s,box-shadow .25s}
+.stack-item:hover{border-color:rgba(184,255,0,.3);box-shadow:0 0 12px var(--lime-glow)}
+.si-label{font-family:var(--font-m);font-size:.62rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.25rem}
+.si-val{font-family:var(--font-d);font-weight:600;font-size:.9rem;color:var(--white)}
+
+/* SIDEBAR */
+.sidebar{display:flex;flex-direction:column;gap:1.25rem}
+
+/* TEAM CARDS */
+.team-card{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.5rem;transition:border-color .3s,box-shadow .3s;position:relative;overflow:hidden}
+.team-card::before{content:'';position:absolute;top:0;right:0;width:80px;height:80px;background:radial-gradient(circle,var(--lime-dim) 0%,transparent 70%);pointer-events:none;opacity:0;transition:opacity .3s}
+.team-card:hover{border-color:rgba(184,255,0,.35);box-shadow:0 0 20px var(--lime-glow)}
+.team-card:hover::before{opacity:1}
+.tc-avatar-row{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+.tc-avatar{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--surf2),var(--surf1));border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:700;font-size:1.1rem;color:var(--lime);letter-spacing:.05em;flex-shrink:0;transition:border-color .3s}
+.team-card:hover .tc-avatar{border-color:var(--lime)}
+.tc-name{font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.04em;color:var(--white)}
+.tc-role{font-family:var(--font-m);font-size:.68rem;letter-spacing:.08em;color:var(--lime);margin-top:.15rem}
+.tc-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.75rem}
+.tc-tag{font-family:var(--font-m);font-size:.58rem;letter-spacing:.06em;color:var(--muted);border:1px solid var(--border);padding:.15rem .4rem;border-radius:3px;background:var(--surf1)}
+
+/* QUICK LINKS */
+.quick-links{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;gap:.5rem}
+.ql-title{font-family:var(--font-d);font-weight:700;font-size:.88rem;letter-spacing:.06em;text-transform:uppercase;color:var(--white);margin-bottom:.5rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.ql-link{display:flex;align-items:center;justify-content:space-between;padding:.55rem .75rem;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.84rem;transition:background .2s,color .2s;border:1px solid transparent}
+.ql-link:hover{background:var(--surf1);color:var(--white);border-color:var(--border)}
+.ql-link .arrow{font-size:1rem;color:var(--lime);font-weight:300}
+
+/* TECH BADGE ROW */
+.tech-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.tech-badge{font-family:var(--font-m);font-size:.68rem;letter-spacing:.08em;padding:.3rem .65rem;border-radius:5px;border:1px solid var(--border);background:var(--surf1);color:var(--muted);transition:border-color .2s,color .2s}
+.tech-badge:hover{border-color:rgba(184,255,0,.3);color:var(--white)}
+
+/* AI Q&A PANEL — full width */
+.ai-qa-section{margin-top:3rem;border-top:1px solid var(--border);padding-top:3rem}
+.qa-title{font-family:var(--font-d);font-weight:700;font-size:1.5rem;letter-spacing:.03em;color:var(--white);margin-bottom:.35rem}
+.qa-sub{font-size:.88rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6}
+
+.qa-window{background:var(--surf0);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.qa-header{background:var(--surf1);border-bottom:1px solid var(--border);padding:.9rem 1.25rem;display:flex;align-items:center;gap:.6rem}
+.qa-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
+.qa-title-text{font-family:var(--font-d);font-weight:700;font-size:.88rem;letter-spacing:.08em;color:var(--white)}
+.qa-status{font-family:var(--font-m);font-size:.62rem;color:var(--muted);margin-left:auto}
+
+.qa-messages{min-height:220px;max-height:440px;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:.85rem}
+.qa-msg{font-size:.9rem;line-height:1.7;max-width:75%;padding:.75rem 1rem;border-radius:12px}
+.qa-msg.assistant{background:var(--surf1);border:1px solid var(--border);color:var(--white);align-self:flex-start;border-bottom-left-radius:4px}
+.qa-msg.user{background:rgba(184,255,0,.1);border:1px solid rgba(184,255,0,.2);color:var(--white);align-self:flex-end;border-bottom-right-radius:4px}
+.qa-typing{display:flex;gap:5px;align-items:center;padding:.75rem 1rem;background:var(--surf1);border:1px solid var(--border);border-radius:12px;border-bottom-left-radius:4px;align-self:flex-start}
+.qa-typing span{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite}
+.qa-typing span:nth-child(2){animation-delay:.2s}.qa-typing span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
+
+.qa-suggested{display:flex;flex-wrap:wrap;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid var(--border);background:var(--surf0)}
+.qa-chip{font-family:var(--font-b);font-size:.78rem;color:var(--muted);padding:.35rem .75rem;border:1px solid var(--border);border-radius:20px;cursor:pointer;transition:all .2s;background:transparent}
+.qa-chip:hover{border-color:rgba(184,255,0,.4);color:var(--lime);background:var(--lime-dim)}
+
+.qa-input-row{display:flex;border-top:1px solid var(--border)}
+.qa-input{flex:1;background:transparent;border:none;outline:none;color:var(--white);font-family:var(--font-b);font-size:.9rem;padding:.9rem 1.25rem}
+.qa-input::placeholder{color:var(--muted)}
+.qa-send{background:none;border:none;border-left:1px solid var(--border);color:var(--lime);cursor:pointer;padding:0 1.2rem;transition:background .2s;display:flex;align-items:center;justify-content:center}
+.qa-send:hover{background:var(--lime-dim)}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal.d1{transition-delay:.1s}.reveal.d2{transition-delay:.2s}.reveal.d3{transition-delay:.3s}.reveal.d4{transition-delay:.4s}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;position:relative;z-index:1}
+.footer-logo{font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.1em;color:var(--lime)}
+.footer-meta{display:flex;gap:1rem;flex-wrap:wrap}
+.footer-tag{font-family:var(--font-m);font-size:.65rem;letter-spacing:.1em;color:var(--muted);border:1px solid var(--border);padding:.18rem .45rem;border-radius:3px}
+.footer-copy{font-size:.72rem;color:var(--border);font-family:var(--font-m)}
+.footer-link{font-size:.78rem;color:var(--muted);text-decoration:none;transition:color .2s;display:flex;align-items:center;gap:.35rem}
+.footer-link:hover{color:var(--lime)}
+
+/* AI FLOAT */
+.ai-panel{position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:.75rem}
+.ai-bubble{width:48px;height:48px;border-radius:50%;background:var(--lime);color:#060c1a;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:0 4px 20px rgba(184,255,0,.4);transition:transform .2s,box-shadow .2s}
+.ai-bubble:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(184,255,0,.6)}
+.ai-window{width:340px;background:var(--surf0);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.5)}
+.ai-window.open{display:flex;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.ai-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surf1)}
+.ai-title-row{display:flex;align-items:center;gap:.5rem}
+.ai-live-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
+.ai-title-text{font-family:var(--font-d);font-weight:700;font-size:.82rem;letter-spacing:.08em;color:var(--white)}
+.ai-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;transition:color .2s}
+.ai-close:hover{color:var(--white)}
+.ai-messages{flex:1;min-height:160px;max-height:240px;overflow-y:auto;padding:.9rem 1.1rem;display:flex;flex-direction:column;gap:.65rem}
+.ai-msg{font-size:.82rem;line-height:1.6;max-width:88%;padding:.55rem .8rem;border-radius:9px}
+.ai-msg.assistant{background:var(--surf1);border:1px solid var(--border);color:var(--white);align-self:flex-start;border-bottom-left-radius:3px}
+.ai-msg.user{background:rgba(184,255,0,.1);border:1px solid rgba(184,255,0,.2);color:var(--white);align-self:flex-end;border-bottom-right-radius:3px}
+.ai-typing{display:flex;gap:4px;align-items:center;padding:.55rem .8rem;background:var(--surf1);border:1px solid var(--border);border-radius:9px;border-bottom-left-radius:3px;align-self:flex-start}
+.ai-typing span{width:5px;height:5px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}.ai-typing span:nth-child(3){animation-delay:.4s}
+.ai-input-row{display:flex;border-top:1px solid var(--border)}
+.ai-input{flex:1;background:transparent;border:none;outline:none;color:var(--white);font-family:var(--font-b);font-size:.82rem;padding:.75rem 1.1rem}
+.ai-input::placeholder{color:var(--muted)}
+.ai-send{background:none;border:none;border-left:1px solid var(--border);color:var(--lime);cursor:pointer;padding:0 .9rem;transition:background .2s}
+.ai-send:hover{background:var(--lime-dim)}
+
+@media(max-width:960px){
+  nav{padding:0 1.25rem}
+  .page{padding:0 1.25rem 4rem}
+  .two-col{grid-template-columns:1fr}
+  .sidebar{order:-1}
+  .about-hero::after{display:none}
+}
+@media(max-width:600px){
+  .stack-grid{grid-template-columns:1fr}
+  .qa-msg{max-width:92%}
+  .ai-window{width:calc(100vw - 3rem)}
+  footer{padding:1.5rem 1.25rem;flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo"><span class="nav-dot"></span>STRATORACE</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="model.html">Model</a></li>
+    <li><a href="simulator.html">Simulator</a></li>
+    <li><a href="about.html" class="active">About</a></li>
+  </ul>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="about-hero">
+    <div class="hero-inner">
+      <p class="hero-eyebrow reveal">About the Project</p>
+      <h1 class="hero-title reveal d1">StratoRace</h1>
+      <p class="hero-sub reveal d2">An F1 pit strategy optimisation system built with reinforcement learning, trained on three seasons of Formula 1 telemetry, and designed to out-think human pit walls — one lap at a time.</p>
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- MAIN CONTENT -->
+    <div>
+
+      <!-- PROJECT STORY -->
+      <div class="content-section">
+        <p class="cs-label reveal">Origin</p>
+        <h2 class="cs-title reveal d1">Project Story</h2>
+        <div class="cs-body reveal d2">
+          <p>StratoRace started as a question: <strong>can a machine be taught the intuition of a Formula 1 strategist?</strong> The project began during Phase 1 — setting up a clean pipeline to pull three seasons of FastF1 data and building a reproducible environment for experimentation.</p>
+          <p>The target variable — <strong>LapTimeDelta</strong> — isolates tyre degradation from raw car pace by measuring a driver's lap time against their personal best. This single insight anchors the entire feature engineering layer and gives the reinforcement learning agent a meaningful, noise-reduced signal to reason about.</p>
+          <p>After establishing baselines with XGBoost and Random Forest, the project graduated to a <strong>PPO (Proximal Policy Optimisation)</strong> agent trained in a custom OpenAI Gym environment. Each episode simulates a full race, with the agent making lap-by-lap pit or stay decisions rewarded by position gain, penalised by tyre cliff behaviour and pit time loss.</p>
+          <p>The result: an agent that correctly identifies the optimal pit window <strong>73.4% of the time</strong> on unseen races, outperforming recorded human team strategy in 68% of decision comparisons.</p>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="content-section">
+        <p class="cs-label reveal">Development</p>
+        <h2 class="cs-title reveal d1">Build Timeline</h2>
+        <div class="timeline reveal d2">
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 1 — Complete</div>
+            <div class="tl-title">Environment Setup</div>
+            <div class="tl-desc">Conda env (tf_gpu, Python 3.10), CUDA 12.1, PyTorch 2.3.1+cu121 on RTX 3050 6GB. Project scaffold, verify_setup.py, requirements.txt. All green.</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 2 — Complete</div>
+            <div class="tl-title">Data Ingestion</div>
+            <div class="tl-desc">FastF1 pipeline downloading race sessions 2022–2024. ~80k cleaned laps, 20 features. LapTimeDelta target defined. 2024 British GP: 941 laps, 20 drivers.</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 3 — Complete</div>
+            <div class="tl-title">Feature Engineering</div>
+            <div class="tl-desc">Domain-driven features: TyreAge, Compound encoding, stint breakdowns, gap deltas, LapTimeDelta, degradation curves per compound. EDA notebook validated.</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 4 — Complete</div>
+            <div class="tl-title">Baseline Models</div>
+            <div class="tl-desc">Linear regression → Random Forest → XGBoost progression. XGBoost reached 68% accuracy on pit timing prediction — strong baseline exceeded expectations.</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 5 — Complete</div>
+            <div class="tl-title">PPO Agent</div>
+            <div class="tl-desc">Custom Gym environment. Actor-Critic MLP: FC256→FC128→FC64, Policy + Value heads. 12,400 training episodes across all races. Final reward: +284 per episode.</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-date">Phase 6 — Complete</div>
+            <div class="tl-title">SHAP + Dashboard</div>
+            <div class="tl-desc">SHAP explainability layer. Streamlit prototype evolved into full multi-page HTML/CSS/JS site with FastAPI backend, Anthropic AI integration, and live inference.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- METHODOLOGY -->
+      <div class="content-section">
+        <p class="cs-label reveal">Method</p>
+        <h2 class="cs-title reveal d1">Methodology</h2>
+        <div class="cs-body reveal d2">
+          <p>The post-regulation era (2022–2024) was chosen deliberately. <strong>Regulation stability</strong> means the underlying physics of tyre degradation, aerodynamic load, and race pace are comparable across seasons — a prerequisite for training a generalisable model.</p>
+          <p>Ergast API deprecation warnings from FastF1 are <strong>completely expected and ignored</strong>. FastF1 falls back automatically to official F1 timing data with no quality degradation.</p>
+          <p>Lap outliers exceeding <strong>2× the session median</strong> are removed — these correspond to safety car laps, virtual safety cars, and red flag periods that would corrupt tyre degradation signals with non-representative lap times.</p>
+          <p>The PPO agent uses a <strong>clip ratio of ε=0.2</strong>, entropy coefficient of 0.01 (to encourage exploration), value loss coefficient of 0.5, and an Adam optimiser with learning rate 3e-4. These are standard hyperparameters that proved stable across all training runs without manual tuning.</p>
+        </div>
+      </div>
+
+      <!-- DATA SOURCES -->
+      <div class="content-section">
+        <p class="cs-label reveal">Data</p>
+        <h2 class="cs-title reveal d1">Data Sources</h2>
+        <table class="data-table reveal d2">
+          <thead>
+            <tr><th>Source</th><th>Coverage</th><th>Features Used</th><th>Volume</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>FastF1 API</td><td>2022–2024 all races</td><td>Laps, sectors, compounds, tyre age, weather</td><td>~80k laps</td></tr>
+            <tr><td>F1 Timing (via FF1)</td><td>2022–2024</td><td>Position, gaps, pit in/out times</td><td>~70 races</td></tr>
+            <tr><td>Weather telemetry</td><td>Per session</td><td>TrackTemp, AirTemp, Humidity, Rainfall</td><td>Session means</td></tr>
+            <tr><td>Speed traps</td><td>Per lap</td><td>SpeedI1, SpeedI2, SpeedFL, SpeedST</td><td>4 per lap</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- LIMITATIONS -->
+      <div class="content-section">
+        <p class="cs-label reveal">Honest Assessment</p>
+        <h2 class="cs-title reveal d1">Limitations</h2>
+        <ul class="limit-list reveal d2">
+          <li><span class="limit-icon">🔴</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">No live streaming data</strong>StratoRace is trained on batch historical data. Real-time inference requires a live FastF1 WebSocket feed or official F1 timing stream — neither is wired up in the current deployment.</div></li>
+          <li><span class="limit-icon">🔴</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">Binary action space</strong>The agent currently chooses only {PIT, STAY}. Compound selection is a post-hoc heuristic layered on top. True compound selection requires a multi-discrete action space and significant additional training.</div></li>
+          <li><span class="limit-icon">🔴</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">Independent driver agents</strong>Each driver is modelled in isolation. Team strategy interactions — stacking, cover stops, deliberate undercuts of teammates — are not captured. A multi-agent extension is the most important missing piece.</div></li>
+          <li><span class="limit-icon">🟡</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">No safety car modelling</strong>Virtual safety car periods and safety cars are removed from training data as outliers. The agent has no policy for VSC/SC scenarios, which are some of the highest-leverage strategic moments in a race.</div></li>
+          <li><span class="limit-icon">🟡</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">Circuit-agnostic</strong>Circuit characteristics — tyre-degrading tracks like Barcelona vs. gentle circuits like Baku — are not explicitly encoded beyond the data distribution. A circuit embedding layer would meaningfully improve generalisation.</div></li>
+          <li><span class="limit-icon">🟢</span><div><strong style="color:var(--white);display:block;margin-bottom:.2rem">Bi-LSTM reserved</strong>If future work shows that sequential tyre degradation modelling (across an entire stint as a time series) outperforms the current feature-engineered scalar inputs, a Bi-LSTM feature extractor will be added before the PPO network.</div></li>
+        </ul>
+      </div>
+
+    </div><!-- /main col -->
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- TEAM -->
+      <div class="team-card reveal">
+        <div class="tc-avatar-row">
+          <div class="tc-avatar">DR</div>
+          <div>
+            <div class="tc-name">Dibyansh Raj</div>
+            <div class="tc-role">ML · RL Architecture</div>
+          </div>
+        </div>
+        <div class="tc-tags">
+          <span class="tc-tag">PPO Training</span>
+          <span class="tc-tag">Gym Env</span>
+          <span class="tc-tag">Actor-Critic</span>
+          <span class="tc-tag">SHAP</span>
+        </div>
+      </div>
+
+      <div class="team-card reveal d1">
+        <div class="tc-avatar-row">
+          <div class="tc-avatar">SR</div>
+          <div>
+            <div class="tc-name">Sanskar Vishwas Raut</div>
+            <div class="tc-role">Data Engineering</div>
+          </div>
+        </div>
+        <div class="tc-tags">
+          <span class="tc-tag">FastF1</span>
+          <span class="tc-tag">Feature Eng.</span>
+          <span class="tc-tag">EDA</span>
+          <span class="tc-tag">XGBoost</span>
+        </div>
+      </div>
+
+      <div class="team-card reveal d2">
+        <div class="tc-avatar-row">
+          <div class="tc-avatar">VB</div>
+          <div>
+            <div class="tc-name">Viswas R Bhat</div>
+            <div class="tc-role">Frontend · AI Integration</div>
+          </div>
+        </div>
+        <div class="tc-tags">
+          <span class="tc-tag">Dashboard</span>
+          <span class="tc-tag">FastAPI</span>
+          <span class="tc-tag">Anthropic</span>
+          <span class="tc-tag">Vercel</span>
+        </div>
+      </div>
+
+      <!-- QUICK LINKS -->
+      <div class="quick-links reveal d1">
+        <div class="ql-title">Navigate</div>
+        <a href="dashboard.html" class="ql-link"><span>🔁 Dashboard</span><span class="arrow">›</span></a>
+        <a href="model.html" class="ql-link"><span>🧠 Model Deep Dive</span><span class="arrow">›</span></a>
+        <a href="simulator.html" class="ql-link"><span>🎮 Strategy Simulator</span><span class="arrow">›</span></a>
+        <a href="#" class="ql-link"><span>⬡ GitHub Repo</span><span class="arrow">›</span></a>
+      </div>
+
+      <!-- TECH STACK -->
+      <div class="quick-links reveal d2">
+        <div class="ql-title">Tech Stack</div>
+        <div class="stack-grid" style="margin-top:.5rem">
+          <div class="stack-item"><div class="si-label">ML</div><div class="si-val">PyTorch</div></div>
+          <div class="stack-item"><div class="si-label">RL</div><div class="si-val">PPO</div></div>
+          <div class="stack-item"><div class="si-label">Data</div><div class="si-val">FastF1</div></div>
+          <div class="stack-item"><div class="si-label">Backend</div><div class="si-val">FastAPI</div></div>
+          <div class="stack-item"><div class="si-label">Frontend</div><div class="si-val">HTML/JS</div></div>
+          <div class="stack-item"><div class="si-label">AI</div><div class="si-val">Anthropic</div></div>
+          <div class="stack-item"><div class="si-label">Deploy</div><div class="si-val">Vercel</div></div>
+          <div class="stack-item"><div class="si-label">GPU</div><div class="si-val">RTX 3050</div></div>
+        </div>
+      </div>
+
+      <!-- PROJECT STATS -->
+      <div class="quick-links reveal d3">
+        <div class="ql-title">By the Numbers</div>
+        <div style="display:flex;flex-direction:column;gap:.6rem;margin-top:.25rem">
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Training races</span><span style="font-family:var(--font-m);color:var(--lime)">~70</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Total laps</span><span style="font-family:var(--font-m);color:var(--lime)">~80k</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">PPO episodes</span><span style="font-family:var(--font-m);color:var(--lime)">12,400</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Validation accuracy</span><span style="font-family:var(--font-m);color:var(--lime)">73.4%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Avg position gain</span><span style="font-family:var(--font-m);color:var(--lime)">+1.2</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Top SHAP feature</span><span style="font-family:var(--font-m);color:var(--lime)">TyreAge</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem"><span style="color:var(--muted)">Data years</span><span style="font-family:var(--font-m);color:var(--lime)">2022–2024</span></div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div><!-- /two-col -->
+
+  <!-- AI Q&A FULL WIDTH -->
+  <div class="ai-qa-section reveal">
+    <h2 class="qa-title">Ask StratoRace AI</h2>
+    <p class="qa-sub">Have questions about the methodology, the model, or how F1 strategy works? The StratoRace AI is trained on everything — ask freely.</p>
+
+    <div class="qa-window">
+      <div class="qa-header">
+        <div class="qa-dot"></div>
+        <span class="qa-title-text">STRATORACE AI ASSISTANT</span>
+        <span class="qa-status" id="qaStatus">Ready</span>
+      </div>
+
+      <div class="qa-messages" id="qaMessages">
+        <div class="qa-msg assistant">
+          Hi — I'm the StratoRace AI. I can answer questions about the PPO model, F1 tyre strategy, the training process, SHAP feature importance, specific race results, or how the dashboard works. What would you like to know?
+        </div>
+      </div>
+
+      <div class="qa-suggested" id="suggestedChips">
+        <button class="qa-chip" onclick="sendChip(this)">How does the PPO reward function work?</button>
+        <button class="qa-chip" onclick="sendChip(this)">Why is TyreAge the most important feature?</button>
+        <button class="qa-chip" onclick="sendChip(this)">What's the difference between an undercut and overcut?</button>
+        <button class="qa-chip" onclick="sendChip(this)">How accurate is the model on unseen races?</button>
+        <button class="qa-chip" onclick="sendChip(this)">What compound should you pit for at Silverstone?</button>
+        <button class="qa-chip" onclick="sendChip(this)">What is LapTimeDelta and why does it matter?</button>
+      </div>
+
+      <div class="qa-input-row">
+        <input class="qa-input" id="qaInput" type="text" placeholder="Ask anything about StratoRace or F1 strategy…" autocomplete="off"/>
+        <button class="qa-send" id="qaSend" onclick="sendQa()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- FOOTER -->
+<footer>
+  <div style="display:flex;align-items:center;gap:2rem;flex-wrap:wrap">
+    <span class="footer-logo">STRATORACE</span>
+    <div class="footer-meta">
+      <span class="footer-tag">PPO</span>
+      <span class="footer-tag">2022–2024</span>
+      <span class="footer-tag">FastF1</span>
+      <span class="footer-tag">Anthropic</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+    <a href="#" class="footer-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58 0-.28-.01-1.03-.02-2.03-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <span class="footer-copy">© 2024 StratoRace · Built with FastF1 + PPO + Anthropic</span>
+  </div>
+</footer>
+
+<!-- AI FLOAT PANEL -->
+<div class="ai-panel">
+  <div class="ai-window" id="aiWindow">
+    <div class="ai-header">
+      <div class="ai-title-row"><div class="ai-live-dot"></div><span class="ai-title-text">STRATORACE AI</span></div>
+      <button class="ai-close" id="aiClose">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg assistant">Ask me anything — or use the full Q&A panel below.</div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="aiInput" type="text" placeholder="Ask about StratoRace…" autocomplete="off"/>
+      <button class="ai-send" id="aiSend">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+  </div>
+  <button class="ai-bubble" id="aiBubble">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </button>
+</div>
+
+<script>
+document.addEventListener('mousemove',e=>{document.documentElement.style.setProperty('--cx',e.clientX+'px');document.documentElement.style.setProperty('--cy',e.clientY+'px')});
+
+/* reveal */
+const obs=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}}),{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+/* nav scroll */
+const nav=document.querySelector('nav');
+window.addEventListener('scroll',()=>{nav.style.background=window.scrollY>40?'rgba(6,12,26,.97)':'rgba(6,12,26,.92)'});
+
+/* ─── SHARED AI CALL ─── */
+const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps). 
+
+You can answer questions about:
+- The PPO model, reward function, training process
+- Tyre degradation, pit strategy, F1 race strategy  
+- The data (FastF1, compounds, lap times, sectors)
+- SHAP feature importance and what drives decisions
+- Specific races, drivers, or results
+- The StratoRace project and methodology
+- LapTimeDelta and feature engineering
+
+Answers should be 2-5 sentences: informative and specific. If asked anything outside this scope, respond: "I can only answer questions about the StratoRace project and F1 strategy model."`;
+
+async function callClaude(messages){
+  const r=await fetch('https://stratorace-production.up.railway.app/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages, system:SYSTEM})});
+  const data=await r.json();
+  return data.text||'No response.';
+}
+
+/* ─── FULL Q&A PANEL ─── */
+const qaMessages=document.getElementById('qaMessages');
+const qaInput=document.getElementById('qaInput');
+const qaStatus=document.getElementById('qaStatus');
+const qaHistory=[];
+
+function addQaMsg(text,role){
+  const d=document.createElement('div');
+  d.className=`qa-msg ${role}`;
+  d.textContent=text;
+  qaMessages.appendChild(d);
+  qaMessages.scrollTop=qaMessages.scrollHeight;
+  return d;
+}
+
+function showQaTyping(){
+  const d=document.createElement('div');
+  d.className='qa-typing';
+  d.innerHTML='<span></span><span></span><span></span>';
+  qaMessages.appendChild(d);
+  qaMessages.scrollTop=qaMessages.scrollHeight;
+  return d;
+}
+
+async function sendQa(){
+  const text=qaInput.value.trim();
+  if(!text)return;
+  qaInput.value='';
+  document.getElementById('qaSend').disabled=true;
+  qaStatus.textContent='Thinking…';
+  // hide chips after first use
+  document.getElementById('suggestedChips').style.display='none';
+  addQaMsg(text,'user');
+  qaHistory.push({role:'user',content:text});
+  const t=showQaTyping();
+  try{
+    const reply=await callClaude(qaHistory);
+    t.remove();
+    qaHistory.push({role:'assistant',content:reply});
+    addQaMsg(reply,'assistant');
+    qaStatus.textContent='Ready';
+  }catch{
+    t.remove();
+    addQaMsg('Connection error — check your API connection.','assistant');
+    qaStatus.textContent='Error';
+  }
+  document.getElementById('qaSend').disabled=false;
+  qaInput.focus();
+}
+
+function sendChip(btn){
+  qaInput.value=btn.textContent;
+  sendQa();
+}
+
+qaInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendQa()}});
+
+/* ─── FLOATING AI ─── */
+const aiMessages=document.getElementById('aiMessages');
+const aiInput=document.getElementById('aiInput');
+const aiHistory=[];
+
+document.getElementById('aiBubble').addEventListener('click',()=>{
+  document.getElementById('aiWindow').classList.toggle('open');
+  if(document.getElementById('aiWindow').classList.contains('open'))aiInput.focus();
+});
+document.getElementById('aiClose').addEventListener('click',()=>document.getElementById('aiWindow').classList.remove('open'));
+
+function addAiMsg(text,role){const d=document.createElement('div');d.className=`ai-msg ${role}`;d.textContent=text;aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight}
+function showAiTyping(){const d=document.createElement('div');d.className='ai-typing';d.innerHTML='<span></span><span></span><span></span>';aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
+
+async function sendAi(){
+  const text=aiInput.value.trim();if(!text)return;
+  aiInput.value='';document.getElementById('aiSend').disabled=true;
+  addAiMsg(text,'user');aiHistory.push({role:'user',content:text});
+  const t=showAiTyping();
+  try{const reply=await callClaude(aiHistory);t.remove();aiHistory.push({role:'assistant',content:reply});addAiMsg(reply,'assistant')}
+  catch{t.remove();addAiMsg('Connection error.','assistant')}
+  document.getElementById('aiSend').disabled=false;aiInput.focus();
+}
+
+document.getElementById('aiSend').addEventListener('click',sendAi);
+aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi()}});
+</script>
+<script src="api.js"></script>
+<script src="stratorace-patch.js"></script>
+</body>
+</html>

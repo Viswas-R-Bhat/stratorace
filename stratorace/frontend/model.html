@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StratoRace — Model Deep Dive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --bg:#060c1a; --surf0:#0a1628; --surf1:#0f1f35; --surf2:#162840;
+  --border:#1e3450; --lime:#B8FF00; --orange:#FF6C00; --red:#E8002D;
+  --yellow:#FFD600; --white:#EBEBEB; --muted:#7a9ab5;
+  --lime-glow:rgba(184,255,0,0.18); --lime-dim:rgba(184,255,0,0.07);
+  --font-d:'Rajdhani',sans-serif; --font-b:'Barlow',sans-serif; --font-m:'DM Mono',monospace;
+  --cx:50%; --cy:50%; --nav-h:56px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--white);font-family:var(--font-b);font-size:15px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(500px circle at var(--cx) var(--cy),rgba(184,255,0,0.035) 0%,transparent 70%)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;padding:0 3rem;background:rgba(6,12,26,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:var(--font-d);font-weight:700;font-size:1.15rem;letter-spacing:.12em;color:var(--lime);text-decoration:none;display:flex;align-items:center;gap:.4rem}
+.nav-dot{width:5px;height:5px;border-radius:50%;background:var(--lime);animation:pulse-dot 2s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+.nav-links{display:flex;gap:2rem;list-style:none}
+.nav-links a{font-size:.78rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover,.nav-links a.active{color:var(--white)}
+
+/* PAGE */
+.page{margin-top:var(--nav-h);max-width:1200px;margin-left:auto;margin-right:auto;padding:3rem 2rem 4rem}
+
+/* HERO */
+.model-hero{padding:3rem 0 2rem;border-bottom:1px solid var(--border);margin-bottom:3rem}
+.hero-eyebrow{font-family:var(--font-m);font-size:.7rem;letter-spacing:.25em;color:var(--lime);text-transform:uppercase;margin-bottom:.6rem}
+.hero-title{font-family:var(--font-d);font-weight:700;font-size:clamp(2rem,4vw,3rem);color:var(--white);line-height:1.05;margin-bottom:.75rem}
+.hero-sub{font-size:.95rem;color:var(--muted);max-width:600px;line-height:1.7}
+
+/* SECTION */
+.model-section{margin-bottom:3rem}
+.section-heading{font-family:var(--font-d);font-weight:700;font-size:1.3rem;letter-spacing:.05em;color:var(--white);margin-bottom:.35rem;display:flex;align-items:center;gap:.75rem}
+.section-heading::before{content:'';display:inline-block;width:3px;height:1.1em;background:var(--lime);border-radius:2px;flex-shrink:0}
+.section-sub{font-size:.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;padding-left:1.2rem}
+
+/* ARCHITECTURE DIAGRAM */
+.arch-diagram{background:var(--surf0);border:1px solid var(--border);border-radius:16px;padding:2rem 1.5rem;overflow-x:auto}
+.arch-flow{display:flex;align-items:stretch;gap:0;min-width:680px}
+
+.arch-block{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
+
+.arch-box{background:var(--surf1);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1rem;width:100%;transition:border-color .3s,box-shadow .3s;cursor:default}
+.arch-box:hover{border-color:var(--lime);box-shadow:0 0 20px var(--lime-glow)}
+
+.arch-box.lime{border-color:rgba(184,255,0,0.35);background:var(--lime-dim)}
+.arch-box.orange{border-color:rgba(255,108,0,0.3);background:rgba(255,108,0,0.07)}
+
+.arch-icon{font-size:1.8rem;margin-bottom:.6rem;line-height:1}
+.arch-title{font-family:var(--font-d);font-weight:700;font-size:.88rem;letter-spacing:.06em;text-transform:uppercase;color:var(--white);margin-bottom:.35rem}
+.arch-desc{font-size:.74rem;color:var(--muted);line-height:1.5}
+
+.arch-arrow{display:flex;align-items:center;justify-content:center;padding:0 .5rem;color:var(--lime);font-size:1.4rem;flex-shrink:0;align-self:center;opacity:.7}
+
+/* STATE SPACE / ACTION SPACE pills */
+.pill-row{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin-top:.75rem}
+.pill{font-family:var(--font-m);font-size:.6rem;letter-spacing:.06em;padding:.18rem .45rem;border-radius:4px;background:var(--surf2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.pill.active{color:var(--lime);border-color:rgba(184,255,0,0.3);background:var(--lime-dim)}
+
+/* PPO layers visual */
+.ppo-layers{display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem;align-items:center;width:100%}
+.ppo-layer{height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-m);font-size:.6rem;letter-spacing:.06em;color:var(--white);width:90%}
+.ppo-layer.l1{background:rgba(184,255,0,0.15);border:1px solid rgba(184,255,0,0.25);width:90%}
+.ppo-layer.l2{background:rgba(184,255,0,0.1);border:1px solid rgba(184,255,0,0.18);width:75%}
+.ppo-layer.l3{background:rgba(184,255,0,0.07);border:1px solid rgba(184,255,0,0.12);width:60%}
+.ppo-layer.out{background:rgba(184,255,0,0.22);border:1px solid rgba(184,255,0,0.4);width:50%;color:var(--lime)}
+
+/* TRAINING PIPELINE */
+.pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.pipeline-step{background:var(--surf0);border:1px solid var(--border);border-radius:12px;padding:1.25rem;position:relative;transition:border-color .25s,box-shadow .25s}
+.pipeline-step:hover{border-color:rgba(184,255,0,0.35);box-shadow:0 0 14px var(--lime-glow)}
+.ps-num{font-family:var(--font-m);font-size:.65rem;color:var(--lime);margin-bottom:.4rem}
+.ps-title{font-family:var(--font-d);font-weight:700;font-size:.92rem;letter-spacing:.05em;color:var(--white);margin-bottom:.4rem;text-transform:uppercase}
+.ps-desc{font-size:.78rem;color:var(--muted);line-height:1.6}
+
+/* REWARD FUNCTION */
+.reward-card{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.5rem 1.75rem}
+.reward-formula{font-family:var(--font-m);font-size:.82rem;color:var(--lime);background:var(--surf1);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;line-height:1.8;overflow-x:auto;white-space:pre}
+.reward-components{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;margin-top:1rem}
+.reward-comp{background:var(--surf1);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem}
+.rc-name{font-family:var(--font-m);font-size:.68rem;letter-spacing:.08em;color:var(--lime);text-transform:uppercase;margin-bottom:.3rem}
+.rc-val{font-family:var(--font-d);font-weight:700;font-size:1rem;color:var(--white);margin-bottom:.2rem}
+.rc-desc{font-size:.75rem;color:var(--muted);line-height:1.5}
+
+/* METRICS SUMMARY */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem}
+.metric-card{background:var(--surf0);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.25rem;transition:border-color .25s,box-shadow .25s}
+.metric-card:hover{border-color:rgba(184,255,0,0.35);box-shadow:0 0 14px var(--lime-glow)}
+.metric-label{font-family:var(--font-m);font-size:.62rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem}
+.metric-val{font-family:var(--font-d);font-weight:700;font-size:1.8rem;line-height:1;color:var(--lime)}
+.metric-val.orange{color:var(--orange)}
+.metric-val.white{color:var(--white)}
+.metric-val.yellow{color:var(--yellow)}
+.metric-sub{font-size:.72rem;color:var(--muted);margin-top:.25rem}
+
+/* CHART CARD */
+.chart-card{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.chart-card-title{font-family:var(--font-d);font-weight:600;font-size:.9rem;letter-spacing:.08em;text-transform:uppercase;color:var(--white);margin-bottom:1rem}
+.chart-wrap{position:relative;height:280px}
+.chart-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+
+/* SHAP BARS */
+.shap-bars{display:flex;flex-direction:column;gap:.7rem}
+.shap-row{display:flex;align-items:center;gap:.75rem}
+.shap-label{font-family:var(--font-m);font-size:.68rem;color:var(--white);width:150px;flex-shrink:0;text-align:right}
+.shap-bar-track{flex:1;height:7px;background:var(--surf1);border-radius:3px;overflow:hidden}
+.shap-bar-fill{height:100%;border-radius:3px;background:linear-gradient(to right,rgba(184,255,0,0.35),var(--lime));transition:width 1.2s ease;width:0%}
+.shap-val{font-family:var(--font-m);font-size:.65rem;color:var(--muted);width:46px;flex-shrink:0}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal.d1{transition-delay:.1s}.reveal.d2{transition-delay:.2s}.reveal.d3{transition-delay:.3s}
+
+/* AI PANEL */
+.ai-panel{position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:.75rem}
+.ai-bubble{width:48px;height:48px;border-radius:50%;background:var(--lime);color:#060c1a;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:0 4px 20px rgba(184,255,0,.4);transition:transform .2s,box-shadow .2s}
+.ai-bubble:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(184,255,0,.6)}
+.ai-window{width:340px;background:var(--surf0);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.5)}
+.ai-window.open{display:flex;animation:slideUpPanel .3s ease}
+@keyframes slideUpPanel{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.ai-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surf1)}
+.ai-title-row{display:flex;align-items:center;gap:.5rem}
+.ai-live-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
+.ai-title-text{font-family:var(--font-d);font-weight:700;font-size:.82rem;letter-spacing:.08em;color:var(--white)}
+.ai-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;transition:color .2s}
+.ai-close:hover{color:var(--white)}
+.ai-messages{flex:1;min-height:160px;max-height:240px;overflow-y:auto;padding:.9rem 1.1rem;display:flex;flex-direction:column;gap:.65rem}
+.ai-msg{font-size:.82rem;line-height:1.6;max-width:88%;padding:.55rem .8rem;border-radius:9px}
+.ai-msg.assistant{background:var(--surf1);border:1px solid var(--border);color:var(--white);align-self:flex-start;border-bottom-left-radius:3px}
+.ai-msg.user{background:rgba(184,255,0,.1);border:1px solid rgba(184,255,0,.2);color:var(--white);align-self:flex-end;border-bottom-right-radius:3px}
+.ai-typing{display:flex;gap:4px;align-items:center;padding:.55rem .8rem;background:var(--surf1);border:1px solid var(--border);border-radius:9px;border-bottom-left-radius:3px;align-self:flex-start}
+.ai-typing span{width:5px;height:5px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}.ai-typing span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
+.ai-input-row{display:flex;border-top:1px solid var(--border)}
+.ai-input{flex:1;background:transparent;border:none;outline:none;color:var(--white);font-family:var(--font-b);font-size:.82rem;padding:.75rem 1.1rem}
+.ai-input::placeholder{color:var(--muted)}
+.ai-send{background:none;border:none;border-left:1px solid var(--border);color:var(--lime);cursor:pointer;padding:0 .9rem;transition:background .2s}
+.ai-send:hover{background:var(--lime-dim)}
+
+@media(max-width:700px){
+  nav{padding:0 1rem}
+  .page{padding:2rem 1rem 3rem}
+  .arch-flow{flex-direction:column}
+  .arch-arrow{transform:rotate(90deg)}
+  .chart-grid-2{grid-template-columns:1fr}
+  .ai-window{width:calc(100vw - 3rem)}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo"><span class="nav-dot"></span>STRATORACE</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="model.html" class="active">Model</a></li>
+    <li><a href="simulator.html">Simulator</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="model-hero reveal">
+    <p class="hero-eyebrow">Model Architecture · PPO Reinforcement Learning</p>
+    <h1 class="hero-title">Inside StratoRace</h1>
+    <p class="hero-sub">A Proximal Policy Optimisation agent trained on 2022–2024 Formula 1 race data. This page documents the full decision-making architecture — state space, network design, training pipeline, reward function, and SHAP interpretability.</p>
+  </div>
+
+  <!-- KEY METRICS -->
+  <div class="model-section">
+    <div class="section-heading reveal">Model Summary</div>
+    <p class="section-sub reveal d1">High-level performance numbers from the final trained agent evaluated on a held-out validation set of 15 unseen races.</p>
+    <div class="metrics-grid">
+      <div class="metric-card reveal d1"><div class="metric-label">Training Races</div><div class="metric-val white">~70</div><div class="metric-sub">2022–2024 seasons</div></div>
+      <div class="metric-card reveal d2"><div class="metric-label">Total Laps</div><div class="metric-val white">~80k</div><div class="metric-sub">raw after cleaning</div></div>
+      <div class="metric-card reveal d1"><div class="metric-label">Val Accuracy</div><div class="metric-val">73.4%</div><div class="metric-sub">pit/stay decisions</div></div>
+      <div class="metric-card reveal d2"><div class="metric-label">Episodes</div><div class="metric-val white">12,400</div><div class="metric-sub">PPO training</div></div>
+      <div class="metric-card reveal d3"><div class="metric-label">Avg Pos Gain</div><div class="metric-val">+1.2</div><div class="metric-sub">over actual strategy</div></div>
+      <div class="metric-card reveal d1"><div class="metric-label">Final Reward</div><div class="metric-val">+284</div><div class="metric-sub">per episode avg</div></div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="model-section">
+    <div class="section-heading reveal">Architecture Diagram</div>
+    <p class="section-sub reveal d1">State observations flow through two shared hidden layers before branching into a policy head (action probabilities) and a value head (state value estimate).</p>
+
+    <div class="arch-diagram reveal d2">
+      <div class="arch-flow">
+
+        <!-- State Space -->
+        <div class="arch-block">
+          <div class="arch-box lime">
+            <div class="arch-icon">📡</div>
+            <div class="arch-title">State Space</div>
+            <div class="arch-desc">9 input observations per timestep</div>
+            <div class="pill-row">
+              <span class="pill active">TyreAge</span>
+              <span class="pill active">LapTimeDelta</span>
+              <span class="pill active">GapAhead</span>
+              <span class="pill active">LapsRemaining</span>
+              <span class="pill active">Position</span>
+              <span class="pill active">Compound</span>
+              <span class="pill">TrackTemp</span>
+              <span class="pill">Rainfall</span>
+              <span class="pill">SpeedST</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-arrow">›</div>
+
+        <!-- Shared Network -->
+        <div class="arch-block">
+          <div class="arch-box">
+            <div class="arch-icon">🧠</div>
+            <div class="arch-title">Actor-Critic Network</div>
+            <div class="arch-desc">Shared MLP backbone</div>
+            <div class="ppo-layers">
+              <div class="ppo-layer l1">FC 256 · ReLU</div>
+              <div class="ppo-layer l2">FC 128 · ReLU</div>
+              <div class="ppo-layer l3">FC 64 · ReLU</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-arrow">›</div>
+
+        <!-- Policy Head -->
+        <div class="arch-block">
+          <div class="arch-box lime">
+            <div class="arch-icon">🎯</div>
+            <div class="arch-title">Policy Head</div>
+            <div class="arch-desc">π(a|s) — action probability</div>
+            <div class="ppo-layers" style="margin-top:.75rem">
+              <div class="ppo-layer l2">FC 32 · ReLU</div>
+              <div class="ppo-layer out">Softmax → {PIT, STAY}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-arrow" style="color:var(--orange)">›</div>
+
+        <!-- Value Head -->
+        <div class="arch-block">
+          <div class="arch-box orange">
+            <div class="arch-icon">📊</div>
+            <div class="arch-title">Value Head</div>
+            <div class="arch-desc">V(s) — state value estimate</div>
+            <div class="ppo-layers" style="margin-top:.75rem">
+              <div class="ppo-layer" style="background:rgba(255,108,0,.12);border:1px solid rgba(255,108,0,.25);width:90%">FC 32 · ReLU</div>
+              <div class="ppo-layer" style="background:rgba(255,108,0,.22);border:1px solid rgba(255,108,0,.4);width:50%;color:var(--orange)">Linear → ℝ</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- TRAINING PIPELINE -->
+  <div class="model-section">
+    <div class="section-heading reveal">Training Pipeline</div>
+    <p class="section-sub reveal d1">End-to-end process from raw telemetry to a trained PPO agent ready for inference.</p>
+    <div class="pipeline">
+      <div class="pipeline-step reveal d1">
+        <div class="ps-num">01</div>
+        <div class="ps-title">Data Ingestion</div>
+        <div class="ps-desc">FastF1 API pulls all race sessions 2022–2024. Telemetry, weather, lap times, compound, tyre age loaded per session.</div>
+      </div>
+      <div class="pipeline-step reveal d2">
+        <div class="ps-num">02</div>
+        <div class="ps-title">Cleaning & Filtering</div>
+        <div class="ps-desc">Null lap times dropped. Safety-car laps (>2× median) removed. Outlier stint lengths excluded. Ergast fallback warnings suppressed.</div>
+      </div>
+      <div class="pipeline-step reveal d3">
+        <div class="ps-num">03</div>
+        <div class="ps-title">Feature Engineering</div>
+        <div class="ps-desc">LapTimeDelta = driver lap − personal best. TyreAge, compound encoding, stint number, gap calculations computed per lap.</div>
+      </div>
+      <div class="pipeline-step reveal d1">
+        <div class="ps-num">04</div>
+        <div class="ps-title">Environment</div>
+        <div class="ps-desc">Custom OpenAI Gym environment wraps each race. Each step = one lap. Observation = 9-dimensional state vector. Actions = {PIT, STAY}.</div>
+      </div>
+      <div class="pipeline-step reveal d2">
+        <div class="ps-num">05</div>
+        <div class="ps-title">PPO Training</div>
+        <div class="ps-desc">12,400 episodes across all races. Clip ratio ε=0.2, entropy coefficient 0.01, value loss coeff 0.5. Adam optimizer lr=3e-4.</div>
+      </div>
+      <div class="pipeline-step reveal d3">
+        <div class="ps-num">06</div>
+        <div class="ps-title">Validation</div>
+        <div class="ps-desc">15 unseen races held out. Agent evaluated on pit/stay decision accuracy, position delta, and time-saved vs actual team strategy.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REWARD FUNCTION -->
+  <div class="model-section">
+    <div class="section-heading reveal">Reward Function</div>
+    <p class="section-sub reveal d1">The reward signal is the core design decision. StratoRace uses a composite reward that balances position gain, tyre degradation penalty, and pit timing.</p>
+    <div class="reward-card reveal d2">
+      <div class="chart-card-title" style="font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;color:var(--white);margin-bottom:0">Reward Formulation</div>
+      <div class="reward-formula">R(t) = α · ΔPosition(t)
+     − β · DegradationPenalty(TyreAge, Compound)
+     − γ · PitCostTime         [if action = PIT]
+     + δ · PositionGainFromUndercut(t)</div>
+      <div class="reward-components">
+        <div class="reward-comp">
+          <div class="rc-name">α · ΔPosition</div>
+          <div class="rc-val">α = 3.0</div>
+          <div class="rc-desc">Primary reward — every position gained scores 3 points. Position lost = −3. The dominant signal.</div>
+        </div>
+        <div class="reward-comp">
+          <div class="rc-name">β · DegPenalty</div>
+          <div class="rc-val">β = 0.8</div>
+          <div class="rc-desc">Penalty proportional to tyre age beyond optimal window. Soft cliff: exponential after threshold lap.</div>
+        </div>
+        <div class="reward-comp">
+          <div class="rc-name">γ · PitCostTime</div>
+          <div class="rc-val">γ = 0.4</div>
+          <div class="rc-desc">Fixed pit stop time loss (~22s) normalised and weighted. Discourages unnecessary stops.</div>
+        </div>
+        <div class="reward-comp">
+          <div class="rc-name">δ · UnderCut</div>
+          <div class="rc-val">δ = 1.5</div>
+          <div class="rc-desc">Bonus when pitting leads to an undercut gain — passing a car that pits later on older tyres.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHAP -->
+  <div class="model-section">
+    <div class="section-heading reveal">SHAP Feature Importance</div>
+    <p class="section-sub reveal d1">SHAP (SHapley Additive exPlanations) values reveal which features most influence each pit decision. TyreAge dominates — as expected from F1 strategy theory.</p>
+    <div class="chart-card reveal d2">
+      <div class="chart-card-title">Global Mean |SHAP| — All Decisions</div>
+      <div class="shap-bars" id="shapBars"></div>
+    </div>
+    <div class="chart-grid-2 reveal d1">
+      <div class="chart-card">
+        <div class="chart-card-title">SHAP Value Distribution</div>
+        <div class="chart-wrap"><canvas id="shapDist"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Top Feature Interaction</div>
+        <div class="chart-wrap"><canvas id="featureInteraction"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIMITATIONS -->
+  <div class="model-section">
+    <div class="section-heading reveal">Limitations & Future Work</div>
+    <p class="section-sub reveal d1">StratoRace is an academic prototype. Known limitations that future iterations should address.</p>
+    <div class="pipeline">
+      <div class="pipeline-step reveal d1">
+        <div class="ps-num" style="color:var(--orange)">⚠</div>
+        <div class="ps-title">No Live Telemetry</div>
+        <div class="ps-desc">Current model is batch-trained, not live. Real-time inference requires a streaming FastF1 or official data source.</div>
+      </div>
+      <div class="pipeline-step reveal d2">
+        <div class="ps-num" style="color:var(--orange)">⚠</div>
+        <div class="ps-title">Binary Action Space</div>
+        <div class="ps-desc">{PIT, STAY} only. Compound selection is post-hoc heuristic. Future: multi-discrete action space including compound choice.</div>
+      </div>
+      <div class="pipeline-step reveal d3">
+        <div class="ps-num" style="color:var(--orange)">⚠</div>
+        <div class="ps-title">No Multi-Agent</div>
+        <div class="ps-desc">Each driver is modelled independently. Team strategy interactions (stacking, cover stops) are not yet captured.</div>
+      </div>
+      <div class="pipeline-step reveal d1">
+        <div class="ps-num" style="color:var(--lime)">→</div>
+        <div class="ps-title">Future: Bi-LSTM</div>
+        <div class="ps-desc">Sequential tyre degradation modelling via Bi-LSTM as a feature extractor before the PPO network, if baselines prove insufficient.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- AI PANEL -->
+<div class="ai-panel">
+  <div class="ai-window" id="aiWindow">
+    <div class="ai-header">
+      <div class="ai-title-row"><div class="ai-live-dot"></div><span class="ai-title-text">STRATORACE AI</span></div>
+      <button class="ai-close" id="aiClose">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg assistant">Ask me about the PPO architecture, reward function, SHAP values, or training methodology.</div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="aiInput" type="text" placeholder="Ask about the model…" autocomplete="off"/>
+      <button class="ai-send" id="aiSend">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+  </div>
+  <button class="ai-bubble" id="aiBubble">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </button>
+</div>
+
+<script>
+document.addEventListener('mousemove',e=>{document.documentElement.style.setProperty('--cx',e.clientX+'px');document.documentElement.style.setProperty('--cy',e.clientY+'px')});
+
+/* reveal */
+const revealObs=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');revealObs.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el));
+
+Chart.defaults.color='#7a9ab5';Chart.defaults.borderColor='#1e3450';Chart.defaults.font.family="'DM Mono',monospace";Chart.defaults.font.size=11;
+const LIME='#B8FF00',ORANGE='#FF6C00',RED='#E8002D',YELLOW='#FFD600';
+
+/* SHAP BARS */
+(function(){
+  const features=[
+    {name:'TyreAge',val:.82},{name:'LapTimeDelta',val:.71},{name:'GapAhead',val:.64},
+    {name:'LapsRemaining',val:.55},{name:'Compound_SOFT',val:.48},{name:'TrackTemp',val:.29},
+    {name:'Compound_HARD',val:.22},{name:'Rainfall',val:.18},{name:'Position',val:.14},{name:'SpeedST',val:.09}
+  ];
+  const container=document.getElementById('shapBars');
+  features.forEach(f=>{
+    const row=document.createElement('div');row.className='shap-row';
+    row.innerHTML=`<span class="shap-label">${f.name}</span><div class="shap-bar-track"><div class="shap-bar-fill" style="width:0%" data-target="${f.val*100}%"></div></div><span class="shap-val">${f.val.toFixed(2)}</span>`;
+    container.appendChild(row);
+  });
+  const obs=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('.shap-bar-fill').forEach(el=>{setTimeout(()=>{el.style.width=el.dataset.target},100)});obs.disconnect()}}),{threshold:.3});
+  obs.observe(container);
+})();
+
+/* shapDist loaded by model-data.js */
+/* featureInteraction loaded by model-data.js */
+/* AI */
+const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps). Answer concisely (2-4 sentences). Only answer about StratoRace, F1 strategy, or the model architecture. If outside scope: "I can only answer questions about the StratoRace project and F1 strategy model."`;
+const history=[];
+const aiBubble=document.getElementById('aiBubble'),aiWindow=document.getElementById('aiWindow'),aiClose=document.getElementById('aiClose'),aiInput=document.getElementById('aiInput'),aiSend=document.getElementById('aiSend'),aiMessages=document.getElementById('aiMessages');
+aiBubble.addEventListener('click',()=>{aiWindow.classList.toggle('open');if(aiWindow.classList.contains('open'))aiInput.focus()});
+aiClose.addEventListener('click',()=>aiWindow.classList.remove('open'));
+function addMsg(text,role){const d=document.createElement('div');d.className=`ai-msg ${role}`;d.textContent=text;aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
+function showTyping(){const d=document.createElement('div');d.className='ai-typing';d.innerHTML='<span></span><span></span><span></span>';aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
+async function send(){const text=aiInput.value.trim();if(!text)return;aiInput.value='';aiSend.disabled=true;addMsg(text,'user');history.push({role:'user',content:text});const t=showTyping();try{const r=await fetch('https://stratorace-production.up.railway.app/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history, system:SYSTEM})});const data=await r.json();t.remove();const reply=data.text||'No response.';history.push({role:'assistant',content:reply});addMsg(reply,'assistant')}catch{t.remove();addMsg('Connection error.','assistant')}aiSend.disabled=false;aiInput.focus()}
+aiSend.addEventListener('click',send);aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+</script>
+<script src="api.js"></script>
+<script src="model-data.js"></script>
+</body>
+</html>

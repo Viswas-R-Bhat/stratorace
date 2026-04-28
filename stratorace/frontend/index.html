@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StratoRace — Every lap. Every decision. Optimised.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════ */
+:root {
+  --bg:        #060c1a;
+  --surf0:     #0a1628;
+  --surf1:     #0f1f35;
+  --surf2:     #162840;
+  --border:    #1e3450;
+  --lime:      #B8FF00;
+  --orange:    #FF6C00;
+  --red:       #E8002D;
+  --yellow:    #FFD600;
+  --white:     #EBEBEB;
+  --muted:     #7a9ab5;
+  --lime-glow: rgba(184,255,0,0.18);
+  --lime-dim:  rgba(184,255,0,0.07);
+
+  --font-display: 'Rajdhani', sans-serif;
+  --font-body:    'Barlow', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+
+  /* cursor position */
+  --cx: 50%;
+  --cy: 50%;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* Cursor reactive radial glow */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    600px circle at var(--cx) var(--cy),
+    rgba(184,255,0,0.04) 0%,
+    transparent 70%
+  );
+  transition: background 0.1s ease;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--lime); }
+
+/* ═══════════════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════════════ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3rem;
+  height: 64px;
+  background: rgba(6,12,26,0.82);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s ease;
+}
+
+.nav-logo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  color: var(--lime);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-logo .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.6); }
+}
+
+.nav-links {
+  display: flex;
+  gap: 2.5rem;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -4px; left: 0; right: 0;
+  height: 1px;
+  background: var(--lime);
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
+}
+
+.nav-links a:hover { color: var(--white); }
+.nav-links a:hover::after { transform: scaleX(1); }
+
+/* ═══════════════════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════════════════ */
+#hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-top: 64px;
+}
+
+/* Grid overlay */
+#hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(30,52,80,0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,52,80,0.25) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 900px;
+  padding: 0 2rem;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  color: var(--lime);
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  opacity: 0;
+  animation: fadeSlideUp 0.8s 0.2s ease forwards;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(4rem, 10vw, 8rem);
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  color: var(--white);
+  margin-bottom: 0.2em;
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 0.35s ease forwards;
+}
+
+.hero-title .lime { color: var(--lime); }
+
+.hero-tagline {
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-weight: 300;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 3rem;
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 0.5s ease forwards;
+}
+
+.hero-tagline em {
+  font-style: normal;
+  color: var(--white);
+  font-weight: 500;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 2.4rem;
+  background: var(--lime);
+  color: #060c1a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: all 0.25s ease;
+  opacity: 0;
+  animation: fadeSlideUp 0.9s 0.65s ease forwards;
+  box-shadow: 0 0 0 rgba(184,255,0,0);
+}
+
+.hero-cta:hover {
+  background: #d4ff33;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(184,255,0,0.35);
+}
+
+.hero-cta svg { transition: transform 0.2s ease; }
+.hero-cta:hover svg { transform: translateX(4px); }
+
+/* Animated F1 track SVG line */
+.track-line {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 1;
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.track-path {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  animation: drawTrack 3s 0.8s ease forwards;
+}
+
+@keyframes drawTrack {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Moving car dot along track */
+.track-car {
+  animation: moveCar 4s 3.8s ease-in-out infinite alternate;
+}
+
+@keyframes moveCar {
+  0%   { offset-distance: 0%; }
+  100% { offset-distance: 100%; }
+}
+
+/* Hero decorative data badges */
+.hero-badges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.badge {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: rgba(10,22,40,0.7);
+  padding: 0.35rem 0.65rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  animation: fadeIn 1s ease forwards;
+}
+
+.badge-1 { top: 22%; left: 8%;  animation-delay: 1.2s; }
+.badge-2 { top: 38%; right: 7%; animation-delay: 1.5s; }
+.badge-3 { bottom: 22%; left: 12%; animation-delay: 1.8s; }
+.badge-4 { bottom: 30%; right: 10%; animation-delay: 1.4s; }
+
+.badge .val {
+  display: block;
+  color: var(--lime);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* scroll hint */
+.scroll-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0;
+  animation: fadeIn 1s 2s ease forwards;
+}
+
+.scroll-hint span {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.scroll-arrow {
+  width: 1px;
+  height: 32px;
+  background: linear-gradient(to bottom, var(--muted), transparent);
+  animation: scrollArrow 1.6s ease-in-out infinite;
+}
+
+@keyframes scrollArrow {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.6); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SECTIONS COMMON
+═══════════════════════════════════════════════════════ */
+section { position: relative; z-index: 1; }
+
+.section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 6rem 2rem;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--lime);
+  margin-bottom: 0.75rem;
+}
+
+.section-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  color: var(--white);
+  margin-bottom: 1rem;
+}
+
+.section-sub {
+  font-size: 1rem;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.7;
+}
+
+/* scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal.delay-1 { transition-delay: 0.1s; }
+.reveal.delay-2 { transition-delay: 0.2s; }
+.reveal.delay-3 { transition-delay: 0.3s; }
+.reveal.delay-4 { transition-delay: 0.4s; }
+.reveal.delay-5 { transition-delay: 0.5s; }
+
+/* ═══════════════════════════════════════════════════════
+   THE PROBLEM — stat cards
+═══════════════════════════════════════════════════════ */
+#problem {
+  border-top: 1px solid var(--border);
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 3.5rem;
+}
+
+.stat-card {
+  background: var(--surf0);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.2rem 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--lime-dim) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--lime);
+  box-shadow: 0 0 24px var(--lime-glow), inset 0 0 20px var(--lime-dim);
+}
+
+.stat-card:hover::before { opacity: 1; }
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.stat-number {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 3rem;
+  line-height: 1;
+  color: var(--lime);
+  margin-bottom: 0.3rem;
+  letter-spacing: -0.01em;
+}
+
+.stat-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--white);
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+
+.stat-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════
+   HOW IT WORKS — 4-step flow
+═══════════════════════════════════════════════════════ */
+#how {
+  border-top: 1px solid var(--border);
+  background: var(--surf0);
+}
+
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin-top: 3.5rem;
+  position: relative;
+}
+
+/* connector line between steps */
+.flow-steps::before {
+  content: '';
+  position: absolute;
+  top: 44px;
+  left: calc(12.5% + 24px);
+  right: calc(12.5% + 24px);
+  height: 1px;
+  background: linear-gradient(to right, var(--border), var(--lime), var(--border));
+  z-index: 0;
+}
+
+.flow-step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.step-icon-wrap {
+  width: 88px; height: 88px;
+  border-radius: 50%;
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  font-size: 1.8rem;
+  position: relative;
+}
+
+.flow-step:hover .step-icon-wrap {
+  border-color: var(--lime);
+  box-shadow: 0 0 20px var(--lime-glow);
+  background: var(--surf2);
+}
+
+.step-num {
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 20px; height: 20px;
+  background: var(--lime);
+  color: #060c1a;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-arrow {
+  position: absolute;
+  top: 32px;
+  right: -16px;
+  z-index: 2;
+  color: var(--lime);
+  font-size: 1.4rem;
+  font-weight: 300;
+  opacity: 0.6;
+}
+
+.flow-step:last-child .step-arrow { display: none; }
+
+.step-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+}
+
+.step-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 180px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FEATURES — 6 card grid
+═══════════════════════════════════════════════════════ */
+#features {
+  border-top: 1px solid var(--border);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+  margin-top: 3.5rem;
+}
+
+.feature-card {
+  background: var(--surf0);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+}
+
+.feature-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--lime-dim) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.feature-card:hover {
+  border-color: var(--lime);
+  box-shadow: 0 0 24px var(--lime-glow);
+  transform: translateY(-3px);
+}
+
+.feature-card:hover::after { opacity: 1; }
+
+.fc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.fc-icon {
+  width: 48px; height: 48px;
+  border-radius: 10px;
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  transition: border-color 0.3s ease;
+  flex-shrink: 0;
+}
+
+.feature-card:hover .fc-icon {
+  border-color: var(--lime);
+  box-shadow: 0 0 12px var(--lime-glow);
+}
+
+.fc-arrow {
+  color: var(--muted);
+  font-size: 1.4rem;
+  font-weight: 300;
+  transition: color 0.25s ease, transform 0.25s ease;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.feature-card:hover .fc-arrow {
+  color: var(--lime);
+  transform: translateX(4px);
+}
+
+.fc-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  color: var(--white);
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+.fc-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.65;
+  position: relative;
+  z-index: 1;
+}
+
+.fc-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lime);
+  border: 1px solid rgba(184,255,0,0.25);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  align-self: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   AI ASSISTANT — floating panel
+═══════════════════════════════════════════════════════ */
+.ai-panel {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.ai-bubble {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--lime);
+  color: #060c1a;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 4px 24px rgba(184,255,0,0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
+}
+
+.ai-bubble:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 32px rgba(184,255,0,0.6);
+}
+
+.ai-window {
+  width: 360px;
+  background: var(--surf0);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 16px 64px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+  animation: slideUpPanel 0.3s ease;
+}
+
+.ai-window.open {
+  display: flex;
+}
+
+@keyframes slideUpPanel {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf1);
+}
+
+.ai-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ai-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+.ai-title-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  color: var(--white);
+}
+
+.ai-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+  padding: 0.25rem;
+}
+
+.ai-close:hover { color: var(--white); }
+
+.ai-messages {
+  flex: 1;
+  min-height: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ai-msg {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-width: 85%;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+}
+
+.ai-msg.assistant {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  color: var(--white);
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+}
+
+.ai-msg.user {
+  background: rgba(184,255,0,0.12);
+  border: 1px solid rgba(184,255,0,0.2);
+  color: var(--white);
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+}
+
+.ai-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-bottom-left-radius: 3px;
+  align-self: flex-start;
+}
+
+.ai-typing span {
+  width: 6px; height: 6px;
+  background: var(--muted);
+  border-radius: 50%;
+  animation: typing 1.2s ease-in-out infinite;
+}
+.ai-typing span:nth-child(2) { animation-delay: 0.2s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+.ai-input-row {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.ai-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 0.85rem 1.25rem;
+}
+
+.ai-input::placeholder { color: var(--muted); }
+
+.ai-send {
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--lime);
+  cursor: pointer;
+  padding: 0 1.1rem;
+  font-size: 1.1rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ai-send:hover { background: var(--lime-dim); }
+
+/* ═══════════════════════════════════════════════════════
+   CREDITS
+═══════════════════════════════════════════════════════ */
+#credits {
+  border-top: 1px solid var(--border);
+  background: var(--surf0);
+}
+
+.credits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.credit-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.credit-card:hover {
+  border-color: var(--lime);
+  box-shadow: 0 0 20px var(--lime-glow);
+}
+
+.credit-avatar {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--surf2), var(--surf1));
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--lime);
+  flex-shrink: 0;
+  letter-spacing: 0.05em;
+  transition: border-color 0.3s ease;
+}
+
+.credit-card:hover .credit-avatar { border-color: var(--lime); }
+
+.credit-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  color: var(--white);
+  margin-bottom: 0.2rem;
+}
+
+.credit-role {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.footer-logo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  color: var(--lime);
+}
+
+.footer-meta {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.footer-link {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.footer-link:hover { color: var(--lime); }
+
+.footer-copy {
+  font-size: 0.75rem;
+  color: var(--border);
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════════════
+   DIVIDER LINE
+═══════════════════════════════════════════════════════ */
+.lime-line {
+  width: 48px; height: 2px;
+  background: var(--lime);
+  margin-bottom: 2.5rem;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .flow-steps {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+  .flow-steps::before { display: none; }
+  .step-arrow { display: none; }
+  nav { padding: 0 1.5rem; }
+  .nav-links { gap: 1.5rem; }
+  .badge { display: none; }
+}
+
+@media (max-width: 600px) {
+  nav { padding: 0 1rem; }
+  .nav-links { gap: 1rem; }
+  .nav-links a { font-size: 0.72rem; }
+  .section-inner { padding: 4rem 1.25rem; }
+  footer { flex-direction: column; align-items: flex-start; padding: 1.5rem 1.25rem; }
+  .flow-steps { grid-template-columns: 1fr; }
+  .ai-window { width: calc(100vw - 3rem); }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav id="main-nav">
+  <a href="index.html" class="nav-logo">
+    <span class="dot"></span>
+    STRATORACE
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="model.html">Model</a></li>
+    <li><a href="simulator.html">Simulator</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section id="hero">
+
+  <!-- Decorative data badges -->
+  <div class="hero-badges">
+    <div class="badge badge-1">
+      <span class="val">~80k+</span>
+      laps analysed
+    </div>
+    <div class="badge badge-2">
+      <span class="val">2022–2024</span>
+      season data
+    </div>
+    <div class="badge badge-3">
+      <span class="val">PPO Agent</span>
+      RL strategy
+    </div>
+    <div class="badge badge-4">
+      <span class="val">~70 races</span>
+      training corpus
+    </div>
+  </div>
+
+  <div class="hero-content">
+    <p class="hero-eyebrow">Formula 1 · Pit Strategy AI · 2022–2024</p>
+    <h1 class="hero-title">STRATO<span class="lime">RACE</span></h1>
+    <p class="hero-tagline">Every lap. Every decision. <em>Optimised.</em></p>
+    <a href="dashboard.html" class="hero-cta">
+      Open Dashboard
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+
+  <!-- Animated F1-style track line SVG -->
+  <svg class="track-line" viewBox="0 0 1440 220" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <path
+      class="track-path"
+      d="M-20 180 C80 180 120 40 220 40 C300 40 340 120 440 120 C560 120 580 20 700 20 C820 20 840 100 960 100 C1060 100 1100 60 1200 60 C1320 60 1380 140 1460 140"
+      stroke="url(#trackGrad)"
+      stroke-width="2"
+      stroke-linecap="round"
+      fill="none"
+    />
+    <defs>
+      <linearGradient id="trackGrad" x1="0" y1="0" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#1e3450"/>
+        <stop offset="40%" stop-color="#B8FF00"/>
+        <stop offset="100%" stop-color="#1e3450"/>
+      </linearGradient>
+    </defs>
+    <!-- Moving dot along track -->
+    <circle r="5" fill="#B8FF00">
+      <animateMotion dur="6s" repeatCount="indefinite" begin="3.5s">
+        <mpath href="#trackPathMotion"/>
+      </animateMotion>
+    </circle>
+    <!-- Duplicate path for animateMotion (needs id) -->
+    <path
+      id="trackPathMotion"
+      d="M-20 180 C80 180 120 40 220 40 C300 40 340 120 440 120 C560 120 580 20 700 20 C820 20 840 100 960 100 C1060 100 1100 60 1200 60 C1320 60 1380 140 1460 140"
+      fill="none" stroke="none"
+    />
+  </svg>
+
+  <div class="scroll-hint">
+    <span>scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- ═══════════ THE PROBLEM ═══════════ -->
+<section id="problem">
+  <div class="section-inner">
+    <p class="section-label reveal">The Problem</p>
+    <h2 class="section-heading reveal delay-1">Races are won and lost<br/>in the pit lane</h2>
+    <p class="section-sub reveal delay-2">A single mistimed pit stop can cost a driver multiple grid positions. Human intuition is no longer sufficient against the speed of modern F1 racing.</p>
+    <div class="lime-line reveal delay-3"></div>
+
+    <div class="problem-grid">
+      <div class="stat-card reveal delay-1">
+        <div class="stat-icon">🏎</div>
+        <div class="stat-number counter" data-target="20" data-suffix="+">0</div>
+        <div class="stat-label">Pit Decisions Per Race</div>
+        <div class="stat-desc">Each race demands over 20 critical timing and compound selection decisions — all made under extreme pressure in real time.</div>
+      </div>
+      <div class="stat-card reveal delay-2">
+        <div class="stat-icon">⏱</div>
+        <div class="stat-number counter" data-target="2" data-prefix="" data-suffix="s">0</div>
+        <div class="stat-label">Lost = 1 Position</div>
+        <div class="stat-desc">Just two seconds of pit timing error translates directly to losing a grid position — the margin between podium and obscurity.</div>
+      </div>
+      <div class="stat-card reveal delay-3">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-number counter" data-target="34" data-suffix="%">0</div>
+        <div class="stat-label">Human Error Rate</div>
+        <div class="stat-desc">Analysis of 2022–2024 races shows roughly 1 in 3 pit calls deviated from the statistically optimal window, costing points.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ HOW IT WORKS ═══════════ -->
+<section id="how">
+  <div class="section-inner">
+    <p class="section-label reveal">How It Works</p>
+    <h2 class="section-heading reveal delay-1">From raw lap data<br/>to optimal strategy</h2>
+    <p class="section-sub reveal delay-2">StratoRace pipelines three seasons of Formula 1 telemetry through a feature engineering layer and into a trained PPO reinforcement learning agent that outputs live pit decisions.</p>
+
+    <div class="flow-steps">
+      <div class="flow-step reveal delay-1">
+        <div class="step-icon-wrap">
+          📡
+          <span class="step-num">1</span>
+        </div>
+        <span class="step-arrow">›</span>
+        <div class="step-title">FastF1 Data</div>
+        <div class="step-desc">~80k laps across 2022–2024. Lap times, tyre compounds, sector splits, weather, positions.</div>
+      </div>
+      <div class="flow-step reveal delay-2">
+        <div class="step-icon-wrap">
+          ⚙️
+          <span class="step-num">2</span>
+        </div>
+        <span class="step-arrow">›</span>
+        <div class="step-title">Feature Engineering</div>
+        <div class="step-desc">LapTimeDelta, tyre degradation curves, stint analysis, gap deltas — domain-driven features built for strategy.</div>
+      </div>
+      <div class="flow-step reveal delay-3">
+        <div class="step-icon-wrap">
+          🧠
+          <span class="step-num">3</span>
+        </div>
+        <span class="step-arrow">›</span>
+        <div class="step-title">PPO Agent</div>
+        <div class="step-desc">Proximal Policy Optimisation trained on historical strategy outcomes, reward-shaped for position gain.</div>
+      </div>
+      <div class="flow-step reveal delay-4">
+        <div class="step-icon-wrap">
+          🏁
+          <span class="step-num">4</span>
+        </div>
+        <div class="step-title">Pit Decision</div>
+        <div class="step-desc">Real-time compound recommendation and optimal pit lap with confidence score and SHAP explanation.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FEATURES ═══════════ -->
+<section id="features">
+  <div class="section-inner">
+    <p class="section-label reveal">Dashboard Modules</p>
+    <h2 class="section-heading reveal delay-1">Six lenses on<br/>F1 strategy intelligence</h2>
+    <p class="section-sub reveal delay-2">Every module of the StratoRace dashboard exposes a different facet of the model — from raw degradation curves to full agent replay.</p>
+
+    <div class="features-grid">
+      <a href="dashboard.html#strategy-replay" class="feature-card reveal delay-1">
+        <div class="fc-header">
+          <div class="fc-icon">🔁</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">Strategy Replay</div>
+        <div class="fc-desc">Replay any race lap-by-lap. See when the PPO agent would have pitted versus the actual strategy — and the position delta that resulted.</div>
+        <span class="fc-tag">Race Analysis</span>
+      </a>
+      <a href="dashboard.html#tyre-degradation" class="feature-card reveal delay-2">
+        <div class="fc-header">
+          <div class="fc-icon">📉</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">Tyre Degradation</div>
+        <div class="fc-desc">Per-compound degradation curves across drivers and stints. Visualise how soft, medium, and hard compounds age across different circuits.</div>
+        <span class="fc-tag">Tyre Model</span>
+      </a>
+      <a href="dashboard.html#agent-vs-actual" class="feature-card reveal delay-3">
+        <div class="fc-header">
+          <div class="fc-icon">⚡</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">Agent vs Actual</div>
+        <div class="fc-desc">Side-by-side comparison of PPO agent decisions against real-world team strategies. Quantify exactly where the model outperforms human calls.</div>
+        <span class="fc-tag">Performance</span>
+      </a>
+      <a href="dashboard.html#shap" class="feature-card reveal delay-4">
+        <div class="fc-header">
+          <div class="fc-icon">🔍</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">SHAP Explainability</div>
+        <div class="fc-desc">Understand <em>why</em> the agent made each decision. SHAP feature importance ranked by contribution — full model transparency.</div>
+        <span class="fc-tag">Interpretability</span>
+      </a>
+      <a href="dashboard.html#metrics" class="feature-card reveal delay-5">
+        <div class="fc-header">
+          <div class="fc-icon">📊</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">Model Metrics</div>
+        <div class="fc-desc">Training curves, reward progression, policy entropy and value loss across the full PPO training run. Validation across unseen races.</div>
+        <span class="fc-tag">Evaluation</span>
+      </a>
+      <a href="simulator.html" class="feature-card reveal delay-1">
+        <div class="fc-header">
+          <div class="fc-icon">🎮</div>
+          <span class="fc-arrow">›</span>
+        </div>
+        <div class="fc-title">Strategy Simulator</div>
+        <div class="fc-desc">Input a race state — lap, tyre age, compound, gap ahead — and get the agent's recommended action with confidence and alternatives.</div>
+        <span class="fc-tag">Live Inference</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CREDITS ═══════════ -->
+<section id="credits">
+  <div class="section-inner">
+    <p class="section-label reveal">Built by</p>
+    <h2 class="section-heading reveal delay-1">The StratoRace team</h2>
+
+    <div class="credits-grid">
+      <div class="credit-card reveal delay-1">
+        <div class="credit-avatar">DR</div>
+        <div>
+          <div class="credit-name">Dibyansh Raj</div>
+          <div class="credit-role">ML · RL Architecture · PPO Training</div>
+        </div>
+      </div>
+      <div class="credit-card reveal delay-2">
+        <div class="credit-avatar">SR</div>
+        <div>
+          <div class="credit-name">Sanskar Vishwas Raut</div>
+          <div class="credit-role">Data Engineering · Feature Pipeline</div>
+        </div>
+      </div>
+      <div class="credit-card reveal delay-3">
+        <div class="credit-avatar">VB</div>
+        <div>
+          <div class="credit-name">Viswas R Bhat</div>
+          <div class="credit-role">Frontend · Dashboard · AI Integration</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <div class="footer-left">
+    <span class="footer-logo">STRATORACE</span>
+    <div class="footer-meta">
+      <span class="footer-tag">PPO</span>
+      <span class="footer-tag">2022–2024</span>
+      <span class="footer-tag">FastF1</span>
+    </div>
+  </div>
+  <div class="footer-right">
+    <a href="#" class="footer-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58 0-.28-.01-1.03-.02-2.03-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/>
+      </svg>
+      GitHub
+    </a>
+    <span class="footer-copy">© 2024 StratoRace</span>
+  </div>
+</footer>
+
+<!-- ═══════════ AI FLOATING PANEL ═══════════ -->
+<div class="ai-panel">
+  <div class="ai-window" id="aiWindow">
+    <div class="ai-header">
+      <div class="ai-header-title">
+        <div class="ai-dot"></div>
+        <span class="ai-title-text">STRATORACE AI</span>
+      </div>
+      <button class="ai-close" id="aiClose" aria-label="Close">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg assistant">
+        Ask me anything about the StratoRace model — tyre strategy, PPO training, SHAP explainability, or specific races.
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="aiInput" type="text" placeholder="Ask about the model…" autocomplete="off" />
+      <button class="ai-send" id="aiSend" aria-label="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <button class="ai-bubble" id="aiBubble" aria-label="Open StratoRace AI">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ═══════════ SCRIPTS ═══════════ -->
+<script>
+/* ─── Cursor reactive glow ─── */
+document.addEventListener('mousemove', e => {
+  document.documentElement.style.setProperty('--cx', e.clientX + 'px');
+  document.documentElement.style.setProperty('--cy', e.clientY + 'px');
+});
+
+/* ─── Scroll reveal (Intersection Observer) ─── */
+const reveals = document.querySelectorAll('.reveal');
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12 });
+
+reveals.forEach(el => revealObs.observe(el));
+
+/* ─── Animated stat counters ─── */
+function animateCounter(el) {
+  const target = parseInt(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  const prefix = el.dataset.prefix || '';
+  const duration = 1800;
+  const start = performance.now();
+
+  function step(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // ease out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.floor(eased * target);
+    el.textContent = prefix + current + suffix;
+    if (progress < 1) requestAnimationFrame(step);
+    else el.textContent = prefix + target + suffix;
+  }
+  requestAnimationFrame(step);
+}
+
+const counters = document.querySelectorAll('.counter');
+const counterObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      animateCounter(e.target);
+      counterObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+
+counters.forEach(el => counterObs.observe(el));
+
+/* ─── Nav scroll style ─── */
+const nav = document.getElementById('main-nav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 40) {
+    nav.style.background = 'rgba(6,12,26,0.97)';
+  } else {
+    nav.style.background = 'rgba(6,12,26,0.82)';
+  }
+});
+
+/* ─── AI Panel toggle ─── */
+const aiBubble  = document.getElementById('aiBubble');
+const aiWindow  = document.getElementById('aiWindow');
+const aiClose   = document.getElementById('aiClose');
+const aiInput   = document.getElementById('aiInput');
+const aiSend    = document.getElementById('aiSend');
+const aiMessages = document.getElementById('aiMessages');
+
+aiBubble.addEventListener('click', () => {
+  aiWindow.classList.toggle('open');
+  if (aiWindow.classList.contains('open')) aiInput.focus();
+});
+
+aiClose.addEventListener('click', () => aiWindow.classList.remove('open'));
+
+function addMessage(text, role) {
+  const div = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  div.textContent = text;
+  aiMessages.appendChild(div);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'ai-typing';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  aiMessages.appendChild(div);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+  return div;
+}
+
+const SYSTEM_PROMPT = `You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps).
+
+You can answer questions about:
+- The PPO model, reward function, training process
+- Tyre degradation, pit strategy, F1 race strategy
+- The data (FastF1, compounds, lap times, sectors)
+- SHAP feature importance and what drives decisions
+- Specific races, drivers, or results shown in the dashboard
+- The StratoRace project and methodology
+
+Keep answers concise (2-4 sentences). If the user asks anything outside this scope, respond: "I can only answer questions about the StratoRace project and F1 strategy model."`;
+
+const conversationHistory = [];
+
+async function sendMessage() {
+  const text = aiInput.value.trim();
+  if (!text) return;
+
+  aiInput.value = '';
+  aiSend.disabled = true;
+  addMessage(text, 'user');
+  conversationHistory.push({ role: 'user', content: text });
+
+  const typingEl = showTyping();
+
+  try {
+    const response = await fetch('https://stratorace-production.up.railway.app/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({messages: conversationHistory
+      , system:SYSTEM_PROMPT})
+    });
+
+    const data = await response.json();
+    typingEl.remove();
+
+    const reply = data.text || 'No response.';
+    conversationHistory.push({ role: 'assistant', content: reply });
+    addMessage(reply, 'assistant');
+  } catch (err) {
+    typingEl.remove();
+    addMessage('Connection error — please try again.', 'assistant');
+  }
+
+  aiSend.disabled = false;
+  aiInput.focus();
+}
+
+aiSend.addEventListener('click', sendMessage);
+aiInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+</script>
+
+<script src="api.js"></script>
+<script src="stratorace-patch.js"></script>
+</body>
+</html>
