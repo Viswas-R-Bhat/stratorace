@@ -1,45 +1,21 @@
 /**
  * dashboard-data.js  — StratoRace
- * Loaded by dashboard.html AFTER api.js.
- * Fetches real data from Railway backend and replaces all placeholder charts.
+ * Loaded by dashboard.html AFTER the inline script and api.js.
  *
- * FIXES vs original:
- *  1. API_BASE reads window.STRATORACE_API_BASE (set by api.js) — no wrong fallback
- *  2. initFilters: event listeners attached OUTSIDE try/catch — filters now work
- *  3. Filter changes re-load ALL relevant tabs (not just Tab 2)
- *  4. Tab 1 (Tyre Degradation) wired to real /api/tyre-model data
- *  5. Tab 5 (Pit Window) wired to real /api/evaluation data
- *  6. entropyChart now shows mean_reward band (min/max) — not episode length
- *  7. switchTab override is deferred via DOMContentLoaded to guarantee ordering
+ * IMPORTANT: Does NOT redeclare LIME/ORANGE/RED/YELLOW/API_BASE/SYSTEM_PROMPT
+ * — those are already in scope from dashboard.html's inline <script>.
+ * Redeclaring them as `const` causes a SyntaxError in the same global scope.
  */
 
-// ── URL comes from api.js — never fall back to a hardcoded string here ───────
-const API_BASE = window.STRATORACE_API_BASE;
-
-const LIME = '#B8FF00', ORANGE = '#FF6C00', RED = '#E8002D', YELLOW = '#FFD600';
-
-const CHART_DEFAULTS = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
-  },
-  scales: {
-    x: { grid: { color: '#1e3450' } },
-    y: { grid: { color: '#1e3450' } }
-  }
-};
-
-/* ── Fetch helper ────────────────────────────────────────────────────────── */
+/* ── Fetch helper — reads URL set by api.js ─────────────────────────────── */
 async function apiGet(path) {
-  const r = await fetch(`${API_BASE}${path}`);
-  if (!r.ok) throw new Error(`API ${path} → ${r.status}`);
+  const r = await fetch(window.STRATORACE_API_BASE + path);
+  if (!r.ok) throw new Error('API ' + path + ' → ' + r.status);
   return r.json();
 }
 
-/* ── Safe element accessor ───────────────────────────────────────────────── */
 function el(id) { return document.getElementById(id); }
+function _setText(id, val) { const n = el(id); if (n) n.textContent = val; }
 
 /* ── Populate filters from real race list ────────────────────────────────── */
 async function initFilters() {
@@ -48,7 +24,6 @@ async function initFilters() {
     data = await apiGet('/api/races');
   } catch (e) {
     console.warn('Filter init failed — backend unreachable:', e);
-    // Attach listeners anyway so user can interact once backend recovers
     attachFilterListeners();
     return;
   }
@@ -60,119 +35,113 @@ async function initFilters() {
   if (yearSel) {
     yearSel.innerHTML = data.years
       .sort((a, b) => b - a)
-      .map(y => `<option value="${y}">${y}</option>`)
+      .map(y => '<option value="' + y + '">' + y + '</option>')
       .join('');
   }
   if (gpSel) {
     gpSel.innerHTML = data.gps
-      .map(g => `<option value="${g}">${g}</option>`)
+      .map(g => '<option value="' + g + '">' + g + '</option>')
       .join('');
   }
   if (driverSel) {
     driverSel.innerHTML =
-      `<option value="ALL">All</option>` +
-      data.drivers.map(d => `<option value="${d}">${d}</option>`).join('');
+      '<option value="ALL">All</option>' +
+      data.drivers.map(d => '<option value="' + d + '">' + d + '</option>').join('');
   }
 
   attachFilterListeners();
 }
 
-/* ── FIX 2: listeners attached regardless of fetch success ──────────────── */
+/* FIX: listeners attached outside try/catch so they always run */
 function attachFilterListeners() {
-  ['filterYear', 'filterGP', 'filterDriver'].forEach(id => {
-    el(id)?.addEventListener('change', onFilterChange);
+  ['filterYear', 'filterGP', 'filterDriver'].forEach(function(id) {
+    var node = el(id);
+    if (node) node.addEventListener('change', onFilterChange);
   });
 }
 
-/* ── FIX 3: filter change reloads all relevant tabs ─────────────────────── */
+/* FIX: filter change reloads ALL relevant tabs */
 function onFilterChange() {
-  loadEvaluation();   // Tab 2 — Agent vs Actual
-  loadPitWindows();   // Tab 5 — Pit Window (derived from evaluation rows)
-  // Tab 1 tyre model is compound-level, not race-specific — no reload needed
-  // Tab 4 training data is global — no reload needed
+  loadEvaluation();
+  loadPitWindows();
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 2 — Agent vs Actual  (real evaluation CSV)
+   TAB 2 — Agent vs Actual
 ───────────────────────────────────────────────────────────────────────── */
-let avaChartInst, agreementChartInst, timeSavedChartInst;
+var avaChartInst, agreementChartInst, timeSavedChartInst;
 
 async function loadEvaluation() {
-  const year   = el('filterYear')?.value;
-  const gp     = el('filterGP')?.value;
-  const driver = el('filterDriver')?.value;
+  var year   = el('filterYear')  && el('filterYear').value;
+  var gp     = el('filterGP')    && el('filterGP').value;
+  var driver = el('filterDriver') && el('filterDriver').value;
 
-  const params = new URLSearchParams();
-  if (year)                     params.set('year',   year);
-  if (gp)                       params.set('gp',     gp);
+  var params = new URLSearchParams();
+  if (year)                      params.set('year',   year);
+  if (gp)                        params.set('gp',     gp);
   if (driver && driver !== 'ALL') params.set('driver', driver);
 
   try {
-    const data = await apiGet(`/api/evaluation?${params}`);
-    const { stats, by_gp } = data;
+    var data   = await apiGet('/api/evaluation?' + params);
+    var stats  = data.stats;
+    var by_gp  = data.by_gp;
 
-    // ── Metric cards ──
+    // Metric cards
     _setText('agentAccuracy', stats.accuracy_pct + '%');
     _setText('agentPosGain',  '+' + stats.avg_pos_gain);
     _setText('agentRaces',    stats.total_races);
     _setText('agentPitError', stats.avg_pit_error_laps + ' laps');
 
-    // Also update the comparison-side cards in Tab 2 header
-    const agentCards = document.querySelectorAll('.comparison-side.agent .metric-val');
+    var agentCards = document.querySelectorAll('.comparison-side.agent .metric-val');
     if (agentCards[0]) agentCards[0].textContent = stats.accuracy_pct + '%';
     if (agentCards[1]) agentCards[1].textContent = '+' + stats.avg_pos_gain;
 
-    const labels  = by_gp.map(r => r.gp.substring(0, 6));
-    const rewards = by_gp.map(r => +r.mean_reward.toFixed(2));
+    var labels  = by_gp.map(function(r) { return r.gp.substring(0, 6); });
+    var rewards = by_gp.map(function(r) { return +r.mean_reward.toFixed(2); });
 
-    // ── Bar: mean reward per GP ──
     if (avaChartInst) avaChartInst.destroy();
-    const avaCtx = el('avaChart');
+    var avaCtx = el('avaChart');
     if (avaCtx) {
       avaChartInst = new Chart(avaCtx, {
         type: 'bar',
         data: {
-          labels,
+          labels: labels,
           datasets: [{
             label: 'Avg Reward',
             data: rewards,
-            backgroundColor: rewards.map(v => v >= 0 ? 'rgba(184,255,0,0.5)' : 'rgba(232,0,45,0.45)'),
-            borderColor:     rewards.map(v => v >= 0 ? LIME : RED),
+            backgroundColor: rewards.map(function(v) { return v >= 0 ? 'rgba(184,255,0,0.5)' : 'rgba(232,0,45,0.45)'; }),
+            borderColor:     rewards.map(function(v) { return v >= 0 ? LIME : RED; }),
             borderWidth: 1
           }]
         },
         options: {
-          ...CHART_DEFAULTS,
-          scales: {
-            x: { grid: { color: '#1e3450' } },
-            y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Avg Total Reward', color: '#7a9ab5' } }
-          },
+          responsive: true, maintainAspectRatio: false,
           plugins: {
-            ...CHART_DEFAULTS.plugins,
             legend: { display: false },
             tooltip: {
               backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1,
-              callbacks: { label: c => `Reward: ${c.raw} · n=${by_gp[c.dataIndex].count}` }
+              callbacks: { label: function(c) { return 'Reward: ' + c.raw + ' · n=' + by_gp[c.dataIndex].count; } }
             }
+          },
+          scales: {
+            x: { grid: { color: '#1e3450' } },
+            y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Avg Total Reward', color: '#7a9ab5' } }
           }
         }
       });
     }
 
-    // ── Doughnut: accuracy ──
-    const pct = stats.accuracy_pct;
     if (agreementChartInst) agreementChartInst.destroy();
-    const agCtx = el('agreementChart');
+    var agCtx = el('agreementChart');
     if (agCtx) {
       agreementChartInst = new Chart(agCtx, {
         type: 'doughnut',
         data: {
           labels: ['Correct', 'Suboptimal'],
           datasets: [{
-            data: [pct, 100 - pct],
+            data: [stats.accuracy_pct, 100 - stats.accuracy_pct],
             backgroundColor: ['rgba(184,255,0,0.5)', 'rgba(30,52,80,0.8)'],
-            borderColor: [LIME, '#1e3450'],
-            borderWidth: 2
+            borderColor: [LIME, '#1e3450'], borderWidth: 2
           }]
         },
         options: {
@@ -185,25 +154,22 @@ async function loadEvaluation() {
       });
     }
 
-    // ── Bar: pit timing error ──
-    const pitErrors = by_gp.map(r => +r.mean_pit_error.toFixed(1));
+    var pitErrors = by_gp.map(function(r) { return +r.mean_pit_error.toFixed(1); });
     if (timeSavedChartInst) timeSavedChartInst.destroy();
-    const tsCtx = el('timeSavedChart');
+    var tsCtx = el('timeSavedChart');
     if (tsCtx) {
       timeSavedChartInst = new Chart(tsCtx, {
         type: 'bar',
         data: {
-          labels,
+          labels: labels,
           datasets: [{
-            label: 'Avg Pit Error (laps)',
-            data: pitErrors,
-            backgroundColor: 'rgba(255,108,0,0.4)',
-            borderColor: ORANGE,
-            borderWidth: 1
+            label: 'Avg Pit Error (laps)', data: pitErrors,
+            backgroundColor: 'rgba(255,108,0,0.4)', borderColor: ORANGE, borderWidth: 1
           }]
         },
         options: {
-          ...CHART_DEFAULTS,
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
           scales: {
             x: { grid: { color: '#1e3450' } },
             y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Avg Pit Timing Error (laps)', color: '#7a9ab5' } }
@@ -218,61 +184,50 @@ async function loadEvaluation() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 1 — Tyre Degradation  (real tyre model CSV)   FIX 4
+   TAB 1 — Tyre Degradation (real /api/tyre-model)
 ───────────────────────────────────────────────────────────────────────── */
-let degChartInst;
+var degChartInst;
 
 async function loadTyreDegradation() {
   try {
-    const data = await apiGet('/api/tyre-model');
-    const compounds = data.compounds; // [{Compound, Slope, Intercept, R2, MAE, CliffLap}, ...]
+    var data      = await apiGet('/api/tyre-model');
+    var compounds = data.compounds;
 
-    // Update metric cards
-    compounds.forEach(c => {
-      document.querySelectorAll('.metric-card').forEach(card => {
-        const lbl = card.querySelector('.metric-label')?.textContent || '';
-        const sub = card.querySelector('.metric-sub');
+    // Update metric card subtitles
+    compounds.forEach(function(c) {
+      document.querySelectorAll('.metric-card').forEach(function(card) {
+        var lbl = (card.querySelector('.metric-label') || {}).textContent || '';
+        var sub = card.querySelector('.metric-sub');
         if (lbl.includes(c.Compound + ' deg') && sub) {
-          sub.textContent = `R²=${(c.R2 * 100).toFixed(1)}% MAE=${c.MAE?.toFixed(3) ?? '–'}s`;
+          sub.textContent = 'R²=' + (c.R2 * 100).toFixed(1) + '% MAE=' + (c.MAE || 0).toFixed(3) + 's';
         }
       });
     });
 
-    // Build degradation curves from model: LapTime = Intercept + Slope * TyreAge
-    const ages = Array.from({ length: 40 }, (_, i) => i + 1);
-    const compoundColors = { SOFT: RED, MEDIUM: YELLOW, HARD: '#EBEBEB', INTER: '#00c850' };
+    var ages = Array.from({ length: 40 }, function(_, i) { return i + 1; });
+    var compoundColors = { SOFT: RED, MEDIUM: YELLOW, HARD: '#EBEBEB', INTER: '#00c850' };
 
-    const datasets = compounds
-      .filter(c => compoundColors[c.Compound])
-      .map(c => {
-        const cliff = c.CliffLap ?? 40;
-        const data  = ages.map(a => {
-          const base = (c.Intercept ?? 90) + (c.Slope ?? 0.1) * a;
-          const extra = a > cliff ? 0.04 * Math.pow(a - cliff, 1.5) : 0;
+    var datasets = compounds
+      .filter(function(c) { return compoundColors[c.Compound]; })
+      .map(function(c) {
+        var cliff = c.CliffLap || 40;
+        var pts   = ages.map(function(a) {
+          var base  = (c.Intercept || 90) + (c.Slope || 0.1) * a;
+          var extra = a > cliff ? 0.04 * Math.pow(a - cliff, 1.5) : 0;
           return +(base + extra).toFixed(3);
         });
-        return {
-          label: c.Compound,
-          data,
-          borderColor: compoundColors[c.Compound],
-          borderWidth: 2,
-          fill: false,
-          pointRadius: 0
-        };
+        return { label: c.Compound, data: pts, borderColor: compoundColors[c.Compound], borderWidth: 2, fill: false, pointRadius: 0 };
       });
 
     if (degChartInst) degChartInst.destroy();
-    const ctx = el('degChart');
+    var ctx = el('degChart');
     if (ctx) {
       degChartInst = new Chart(ctx, {
         type: 'line',
-        data: { labels: ages, datasets },
+        data: { labels: ages, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } },
-            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
-          },
+          plugins: { legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
           scales: {
             x: { grid: { color: '#1e3450' }, title: { display: true, text: 'Tyre Age (laps)', color: '#7a9ab5' } },
             y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Time (s)', color: '#7a9ab5' } }
@@ -287,87 +242,67 @@ async function loadTyreDegradation() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 3 — SHAP  (real shap_values.csv)
+   TAB 3 — SHAP (real /api/shap)
 ───────────────────────────────────────────────────────────────────────── */
-let shapScatterInst, confChartInst;
+var shapScatterInst;
 
 async function loadShap() {
   try {
-    const data = await apiGet('/api/shap');
-    const { features, beeswarm } = data;
+    var data     = await apiGet('/api/shap');
+    var features = data.features;
+    var beeswarm = data.beeswarm;
 
-    // ── Bar rows ──
-    const container = el('shapBars');
+    var container = el('shapBars');
     if (container) {
       container.innerHTML = '';
-      const maxVal = features[0]?.value ?? 1;
-      features.forEach(f => {
-        const row = document.createElement('div');
+      var maxVal = (features[0] || {}).value || 1;
+      features.forEach(function(f) {
+        var row = document.createElement('div');
         row.className = 'shap-row';
-        row.innerHTML = `
-          <span class="shap-label">${f.name}</span>
-          <div class="shap-bar-track">
-            <div class="shap-bar-fill" style="width:0%"
-                 data-target="${(f.value / maxVal * 100).toFixed(1)}%"></div>
-          </div>
-          <span class="shap-val">${f.value.toFixed(3)}</span>`;
+        row.innerHTML =
+          '<span class="shap-label">' + f.name + '</span>' +
+          '<div class="shap-bar-track"><div class="shap-bar-fill" style="width:0%" data-target="' +
+          (f.value / maxVal * 100).toFixed(1) + '%"></div></div>' +
+          '<span class="shap-val">' + f.value.toFixed(3) + '</span>';
         container.appendChild(row);
       });
 
-      // Animate when Tab 3 becomes active
-      const tab3 = el('tab-3');
+      var tab3 = el('tab-3');
       if (tab3) {
-        const obs = new MutationObserver(() => {
-          if (tab3.classList.contains('active')) {
-            document.querySelectorAll('.shap-bar-fill').forEach(b => {
-              setTimeout(() => { b.style.width = b.dataset.target; }, 100);
-            });
-            obs.disconnect();
-          }
-        });
-        obs.observe(tab3, { attributes: true, attributeFilter: ['class'] });
-        // Also fire immediately if already active
-        if (tab3.classList.contains('active')) {
-          document.querySelectorAll('.shap-bar-fill').forEach(b => {
-            setTimeout(() => { b.style.width = b.dataset.target; }, 100);
+        var animateShap = function() {
+          document.querySelectorAll('.shap-bar-fill').forEach(function(b) {
+            setTimeout(function() { b.style.width = b.dataset.target; }, 100);
           });
+        };
+        if (tab3.classList.contains('active')) {
+          animateShap();
+        } else {
+          var obs = new MutationObserver(function() {
+            if (tab3.classList.contains('active')) { animateShap(); obs.disconnect(); }
+          });
+          obs.observe(tab3, { attributes: true, attributeFilter: ['class'] });
         }
       }
     }
 
-    // ── Beeswarm scatter ──
-    const top8Names = features.slice(0, 8).map(f => f.name);
+    var top8Names = features.slice(0, 8).map(function(f) { return f.name; });
     if (shapScatterInst) shapScatterInst.destroy();
-    const ssCtx = el('shapScatter');
+    var ssCtx = el('shapScatter');
     if (ssCtx) {
       shapScatterInst = new Chart(ssCtx, {
         type: 'scatter',
         data: {
           datasets: [
-            {
-              label: 'Positive SHAP',
-              data: beeswarm.filter(p => p.shap >= 0).map(p => ({ x: p.shap, y: p.feat })),
-              backgroundColor: 'rgba(184,255,0,0.3)', pointRadius: 3
-            },
-            {
-              label: 'Negative SHAP',
-              data: beeswarm.filter(p => p.shap < 0).map(p => ({ x: p.shap, y: p.feat })),
-              backgroundColor: 'rgba(232,0,45,0.3)', pointRadius: 3
-            }
+            { label: 'Positive', data: beeswarm.filter(function(p) { return p.shap >= 0; }).map(function(p) { return { x: p.shap, y: p.feat }; }), backgroundColor: 'rgba(184,255,0,0.3)', pointRadius: 3 },
+            { label: 'Negative', data: beeswarm.filter(function(p) { return p.shap < 0;  }).map(function(p) { return { x: p.shap, y: p.feat }; }), backgroundColor: 'rgba(232,0,45,0.3)',  pointRadius: 3 }
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
           scales: {
             x: { grid: { color: '#1e3450' }, title: { display: true, text: 'SHAP Value', color: '#7a9ab5' } },
-            y: {
-              grid: { color: '#1e3450' },
-              ticks: { stepSize: 1, callback: v => top8Names[v] ?? '' }
-            }
+            y: { grid: { color: '#1e3450' }, ticks: { stepSize: 1, callback: function(v) { return top8Names[v] || ''; } } }
           }
         }
       });
@@ -378,34 +313,27 @@ async function loadShap() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 4 — Model Metrics  (real evaluations.npz via /api/training)
+   TAB 4 — Model Metrics (real /api/training)
 ───────────────────────────────────────────────────────────────────────── */
-let rewardChartInst, rewardBandInst, epLenChartInst, pLossChartInst, vLossChartInst;
+var rewardChartInst, epLenChartInst, pLossChartInst, vLossChartInst;
 
 async function loadTraining() {
   try {
-    const d = await apiGet('/api/training');
-    const labels     = d.timesteps.map(t => (t / 1000).toFixed(0) + 'k');
-    const meanReward = d.mean_reward;
-    const minReward  = d.min_reward;
-    const maxReward  = d.max_reward;
-    const epLen      = d.mean_ep_len;
+    var d      = await apiGet('/api/training');
+    var labels = d.timesteps.map(function(t) { return (t / 1000).toFixed(0) + 'k'; });
 
     function makeChart(id, datasets, yLabel) {
-      const ctx = el(id);
+      var ctx = el(id);
       if (!ctx) return null;
       return new Chart(ctx, {
         type: 'line',
-        data: { labels, datasets },
+        data: { labels: labels, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: datasets.length > 1, labels: { color: '#7a9ab5' } },
-            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
-          },
+          plugins: { legend: { display: datasets.length > 1, labels: { color: '#7a9ab5' } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
           scales: {
             x: { grid: { color: '#1e3450' }, title: { display: true, text: 'Timesteps', color: '#7a9ab5' }, ticks: { maxTicksLimit: 8 } },
-            y: { grid: { color: '#1e3450' }, title: { display: yLabel, text: yLabel, color: '#7a9ab5' } }
+            y: { grid: { color: '#1e3450' }, title: { display: !!yLabel, text: yLabel || '', color: '#7a9ab5' } }
           },
           elements: { point: { radius: 0 }, line: { tension: 0.35 } }
         }
@@ -417,80 +345,30 @@ async function loadTraining() {
     if (pLossChartInst)  pLossChartInst.destroy();
     if (vLossChartInst)  vLossChartInst.destroy();
 
-    // FIX 6: Reward chart shows mean + min/max band (real data from .npz)
     rewardChartInst = makeChart('rewardChart', [
-      {
-        label: 'Max Reward',
-        data: maxReward,
-        borderColor: 'rgba(184,255,0,0.25)',
-        borderWidth: 1,
-        fill: false,
-        pointRadius: 0
-      },
-      {
-        label: 'Mean Reward',
-        data: meanReward,
-        borderColor: LIME,
-        borderWidth: 2,
-        fill: '-1',   // fill to previous dataset (max) → band effect
-        backgroundColor: 'rgba(184,255,0,0.06)',
-        pointRadius: 0
-      },
-      {
-        label: 'Min Reward',
-        data: minReward,
-        borderColor: 'rgba(184,255,0,0.25)',
-        borderWidth: 1,
-        fill: '-1',
-        backgroundColor: 'rgba(184,255,0,0.06)',
-        pointRadius: 0
-      }
+      { label: 'Max',  data: d.max_reward,  borderColor: 'rgba(184,255,0,0.25)', borderWidth: 1, fill: false, pointRadius: 0 },
+      { label: 'Mean', data: d.mean_reward, borderColor: LIME,  borderWidth: 2,   fill: '-1', backgroundColor: 'rgba(184,255,0,0.06)', pointRadius: 0 },
+      { label: 'Min',  data: d.min_reward,  borderColor: 'rgba(184,255,0,0.25)', borderWidth: 1, fill: '-1', backgroundColor: 'rgba(184,255,0,0.06)', pointRadius: 0 }
     ], 'Reward');
 
-    // FIX 5: entropyChart now shows actual episode length (correctly labelled)
     epLenChartInst = makeChart('entropyChart', [{
-      label: 'Mean Episode Length',
-      data: epLen,
-      borderColor: ORANGE,
-      borderWidth: 1.8,
-      fill: true,
-      backgroundColor: 'rgba(255,108,0,0.06)',
-      pointRadius: 0
+      label: 'Mean Episode Length', data: d.mean_ep_len,
+      borderColor: ORANGE, borderWidth: 1.8, fill: true, backgroundColor: 'rgba(255,108,0,0.06)', pointRadius: 0
     }], 'Episode Length (laps)');
 
-    // Policy + Value loss: still proxy curves (not in .npz export)
-    // Note: add loss tensors to your evaluations.npz save to make these real
-    const n = meanReward.length;
-    const pLoss = Array.from({ length: n }, (_, i) =>
-      +(0.18 * Math.exp(-i / 30) + 0.008).toFixed(4));
-    const vLoss = Array.from({ length: n }, (_, i) =>
-      +(0.55 * Math.exp(-i / 28) + 0.025).toFixed(4));
+    // Policy + Value loss: smooth proxy curves (loss tensors not in .npz export yet)
+    var n = d.mean_reward.length;
+    var pLoss = Array.from({ length: n }, function(_, i) { return +(0.18 * Math.exp(-i / 30) + 0.008).toFixed(4); });
+    var vLoss = Array.from({ length: n }, function(_, i) { return +(0.55 * Math.exp(-i / 28) + 0.025).toFixed(4); });
 
-    pLossChartInst = makeChart('pLossChart', [{
-      label: 'Policy Loss (approx)',
-      data: pLoss,
-      borderColor: YELLOW,
-      borderWidth: 1.8,
-      fill: true,
-      backgroundColor: 'rgba(255,214,0,0.06)',
-      pointRadius: 0
-    }], 'Policy Loss');
+    pLossChartInst = makeChart('pLossChart', [{ label: 'Policy Loss (approx)', data: pLoss, borderColor: YELLOW, borderWidth: 1.8, fill: true, backgroundColor: 'rgba(255,214,0,0.06)', pointRadius: 0 }], 'Policy Loss');
+    vLossChartInst = makeChart('vLossChart', [{ label: 'Value Loss (approx)',  data: vLoss, borderColor: '#00aaff', borderWidth: 1.8, fill: true, backgroundColor: 'rgba(0,170,255,0.06)', pointRadius: 0 }], 'Value Loss');
 
-    vLossChartInst = makeChart('vLossChart', [{
-      label: 'Value Loss (approx)',
-      data: vLoss,
-      borderColor: '#00aaff',
-      borderWidth: 1.8,
-      fill: true,
-      backgroundColor: 'rgba(0,170,255,0.06)',
-      pointRadius: 0
-    }], 'Value Loss');
-
-    // Update final reward metric card
-    const finalReward = meanReward[meanReward.length - 1];
-    document.querySelectorAll('.metric-card').forEach(card => {
-      if (card.querySelector('.metric-label')?.textContent === 'Final Reward') {
-        const v = card.querySelector('.metric-val');
+    // Update Final Reward metric card
+    var finalReward = d.mean_reward[d.mean_reward.length - 1];
+    document.querySelectorAll('.metric-card').forEach(function(card) {
+      if ((card.querySelector('.metric-label') || {}).textContent === 'Final Reward') {
+        var v = card.querySelector('.metric-val');
         if (v) v.textContent = '+' + finalReward.toFixed(1);
       }
     });
@@ -501,102 +379,70 @@ async function loadTraining() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 5 — Pit Window  (derived from evaluation rows)  FIX 3
+   TAB 5 — Pit Window (derived from /api/evaluation rows)
 ───────────────────────────────────────────────────────────────────────── */
-let pitWindowChartInst;
+var pitWindowChartInst;
 
 async function loadPitWindows() {
-  const year   = el('filterYear')?.value;
-  const gp     = el('filterGP')?.value;
-  const driver = el('filterDriver')?.value;
+  var year   = el('filterYear')   && el('filterYear').value;
+  var gp     = el('filterGP')     && el('filterGP').value;
+  var driver = el('filterDriver') && el('filterDriver').value;
 
-  const params = new URLSearchParams();
+  var params = new URLSearchParams();
   if (year)                      params.set('year',   year);
   if (gp)                        params.set('gp',     gp);
   if (driver && driver !== 'ALL') params.set('driver', driver);
 
   try {
-    const data = await apiGet(`/api/evaluation?${params}`);
-    const rows = data.rows ?? [];
+    var data     = await apiGet('/api/evaluation?' + params);
+    var rows     = data.rows || [];
+    var total    = 52;
+    var byDriver = {};
 
-    // Build per-driver window from rows: [pit_lap - 4, pit_lap + 4] clamped
-    const totalLaps = 52; // fallback — update if your CSV has total_laps
-    const byDriver = {};
-    rows.forEach(r => {
-      const d = r.driver;
-      if (!byDriver[d]) byDriver[d] = { wins: [], compound: r.compound ?? 'MEDIUM' };
-      if (r.agent_pit_lap) byDriver[d].wins.push(r.agent_pit_lap);
+    rows.forEach(function(r) {
+      if (!byDriver[r.driver]) byDriver[r.driver] = { wins: [], compound: r.compound || 'MEDIUM' };
+      if (r.agent_pit_lap)     byDriver[r.driver].wins.push(r.agent_pit_lap);
     });
 
-    const drivers = Object.entries(byDriver).slice(0, 10).map(([name, v]) => {
-      const pitLap = v.wins.length
-        ? Math.round(v.wins.reduce((a, b) => a + b, 0) / v.wins.length)
-        : 20;
-      return {
-        name,
-        win: [Math.max(1, pitLap - 4), Math.min(totalLaps, pitLap + 4)],
-        compound: v.compound
-      };
+    var drivers = Object.entries(byDriver).slice(0, 10).map(function(entry) {
+      var name = entry[0], v = entry[1];
+      var pitLap = v.wins.length ? Math.round(v.wins.reduce(function(a, b) { return a + b; }, 0) / v.wins.length) : 20;
+      return { name: name, win: [Math.max(1, pitLap - 4), Math.min(total, pitLap + 4)], compound: v.compound };
     });
 
-    // Re-render pit window cards
-    const grid = el('pitWindowGrid');
+    var grid = el('pitWindowGrid');
     if (grid) {
       grid.innerHTML = '';
-      drivers.forEach(d => {
-        const pct1  = (d.win[0] / totalLaps * 100).toFixed(1);
-        const width = ((d.win[1] - d.win[0]) / totalLaps * 100).toFixed(1);
-        const comp  = (d.compound || 'MEDIUM').toUpperCase();
-        grid.innerHTML += `
-          <div class="pit-window-card">
-            <div class="pwc-driver">${d.name}</div>
-            <div class="pwc-window">Laps ${d.win[0]}–${d.win[1]} ·
-              <span class="compound-pill ${comp}" style="padding:.1rem .35rem;font-size:.6rem">${comp}</span>
-            </div>
-            <div class="pwc-bar">
-              <div class="pwc-range" style="left:${pct1}%;width:${width}%"></div>
-            </div>
-          </div>`;
+      drivers.forEach(function(d) {
+        var pct1  = (d.win[0] / total * 100).toFixed(1);
+        var width = ((d.win[1] - d.win[0]) / total * 100).toFixed(1);
+        var comp  = (d.compound || 'MEDIUM').toUpperCase();
+        grid.innerHTML +=
+          '<div class="pit-window-card">' +
+          '<div class="pwc-driver">' + d.name + '</div>' +
+          '<div class="pwc-window">Laps ' + d.win[0] + '–' + d.win[1] +
+          ' · <span class="compound-pill ' + comp + '" style="padding:.1rem .35rem;font-size:.6rem">' + comp + '</span></div>' +
+          '<div class="pwc-bar"><div class="pwc-range" style="left:' + pct1 + '%;width:' + width + '%"></div></div>' +
+          '</div>';
       });
     }
 
-    // Re-render bar chart
     if (pitWindowChartInst) pitWindowChartInst.destroy();
-    const ctx = el('pitWindowChart');
+    var ctx = el('pitWindowChart');
     if (ctx && drivers.length) {
       pitWindowChartInst = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: drivers.map(d => d.name),
+          labels: drivers.map(function(d) { return d.name; }),
           datasets: [
-            {
-              label: 'Window Start',
-              data: drivers.map(d => d.win[0]),
-              backgroundColor: 'rgba(184,255,0,0.2)',
-              borderColor: LIME,
-              borderWidth: 1,
-              borderRadius: 4
-            },
-            {
-              label: 'Window End',
-              data: drivers.map(d => d.win[1]),
-              backgroundColor: 'rgba(255,108,0,0.2)',
-              borderColor: ORANGE,
-              borderWidth: 1,
-              borderRadius: 4
-            }
+            { label: 'Window Start', data: drivers.map(function(d) { return d.win[0]; }), backgroundColor: 'rgba(184,255,0,0.2)', borderColor: LIME,   borderWidth: 1, borderRadius: 4 },
+            { label: 'Window End',   data: drivers.map(function(d) { return d.win[1]; }), backgroundColor: 'rgba(255,108,0,0.2)', borderColor: ORANGE, borderWidth: 1, borderRadius: 4 }
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } },
-            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
-          },
-          scales: {
-            x: { grid: { color: '#1e3450' } },
-            y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Number', color: '#7a9ab5' } }
-          }
+          plugins: { legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
+          scales: { x: { grid: { color: '#1e3450' } }, y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Number', color: '#7a9ab5' } } }
         }
       });
     }
@@ -606,53 +452,43 @@ async function loadPitWindows() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   AI Explain panels — per-tab context (reads real SHAP feature names)
+   AI Explain panels
 ───────────────────────────────────────────────────────────────────────── */
-const TAB_CONTEXTS = [
-  'The user is viewing the Strategy Replay tab. Agent pit calls are shown vs actual team strategy — lap-by-lap position delta. Provide an expert commentary on early pitting strategy in F1.',
-  'The user is viewing the Tyre Degradation tab. Real tyre model fitted with linear regression per compound (SOFT R²≈0.54, MEDIUM R²≈0.73, HARD R²≈0.82). Curves show fitted degradation plus cliff-zone penalty.',
-  'The user is viewing Agent vs Actual comparison. PPO agent evaluated on real 2022-2024 races. Metrics reflect actual agent_full_evaluation.csv output including total_reward and pit_timing_error.',
-  'The user is viewing real SHAP feature importance from the trained XGBoost tyre model. Values are mean absolute SHAP contributions from shap_values.csv. Higher = more influential on pit decision.',
-  'The user is viewing real PPO training curves from evaluations.npz — 50 checkpoints across 500k timesteps. The reward band shows min/mean/max across 5 evaluation episodes per checkpoint.',
+var TAB_CONTEXTS_DB = [
+  'The user is viewing the Strategy Replay tab. Agent pit calls vs actual strategy, lap-by-lap position delta. Provide expert commentary on early pitting strategy in F1.',
+  'The user is viewing Tyre Degradation. Real tyre model: SOFT R²≈0.54, MEDIUM R²≈0.73, HARD R²≈0.82. Curves show fitted degradation plus cliff-zone penalty past optimal window.',
+  'The user is viewing Agent vs Actual. PPO agent evaluated on real 2022–2024 races. Metrics from agent_full_evaluation.csv: total_reward and pit_timing_error.',
+  'The user is viewing real SHAP feature importance from the trained model. Values are mean absolute SHAP contributions from shap_values.csv.',
+  'The user is viewing real PPO training curves from evaluations.npz — 50 checkpoints across training. The reward band shows min/mean/max across evaluation episodes.',
   'The user is viewing Pit Window recommendations derived from agent evaluation data for the selected race and driver filter.'
 ];
 
-// Override triggerAiExplain defined in dashboard.html inline script
 window.triggerAiExplain = async function(tab) {
-  const panel  = el(`aiPanel-${tab}`);
-  const textEl = el(`aiText-${tab}`);
+  var panel  = el('aiPanel-' + tab);
+  var textEl = el('aiText-'  + tab);
   if (!panel || !textEl) return;
   panel.classList.add('open');
   textEl.innerHTML = '<div class="aep-typing"><span></span><span></span><span></span></div>';
-  const prompt = `${TAB_CONTEXTS[tab]} Provide a concise 3-4 sentence expert analysis of what the data shows and what strategic insight it reveals. Be specific and data-driven.`;
+  var prompt = (TAB_CONTEXTS_DB[tab] || '') + ' Provide a concise 3-4 sentence expert analysis. Be specific and data-driven.';
   try {
-    const reply = await callClaude([{ role: 'user', content: prompt }]);
+    var reply = await callClaude([{ role: 'user', content: prompt }]);
     textEl.textContent = reply;
-  } catch {
+  } catch (e) {
     textEl.textContent = 'Unable to generate explanation — check API configuration.';
   }
 };
 
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function _setText(id, val) {
-  const node = el(id);
-  if (node) node.textContent = val;
-}
-
 /* ─────────────────────────────────────────────────────────────────────────
-   FIX 7: Hook switchTab AFTER DOMContentLoaded to guarantee ordering
+   Hook switchTab — deferred so inline script runs first
 ───────────────────────────────────────────────────────────────────────── */
-let currentTabDB = 0;
-// Track which tabs have been loaded
-const _loaded = { 1: false, 2: false, 3: false, 4: false, 5: false };
+var _loaded = { 1: false, 2: false, 3: false, 4: false, 5: false };
+var _currentTabDB = 0;
 
 function hookSwitchTab() {
-  const origSwitch = window.switchTab;
+  var orig = window.switchTab;
   window.switchTab = function(n) {
-    if (origSwitch) origSwitch(n);
-    currentTabDB = n;
-
-    // Lazy-load on first open
+    if (orig) orig(n);
+    _currentTabDB = n;
     if (n === 1 && !_loaded[1]) { _loaded[1] = true; loadTyreDegradation(); }
     if (n === 2 && !_loaded[2]) { _loaded[2] = true; loadEvaluation(); }
     if (n === 3 && !_loaded[3]) { _loaded[3] = true; loadShap(); }
@@ -662,9 +498,9 @@ function hookSwitchTab() {
 }
 
 /* ── Bootstrap ──────────────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', async () => {
-  hookSwitchTab();         // wrap AFTER inline script has run
-  await initFilters();     // populate + attach change listeners
-  loadShap();              // pre-load SHAP so Tab 3 feels instant
-  loadTyreDegradation();   // pre-load tyre curves for Tab 1
+document.addEventListener('DOMContentLoaded', async function() {
+  hookSwitchTab();
+  await initFilters();
+  loadShap();
+  loadTyreDegradation();
 });
