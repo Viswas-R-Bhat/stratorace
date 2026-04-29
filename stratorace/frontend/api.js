@@ -1,13 +1,20 @@
 /**
  * StratoRace — shared API config
- * Set API_BASE to your Railway deployment URL before deploying to Vercel.
- * e.g.  const API_BASE = 'https://stratorace-backend.up.railway.app';
+ * Single source of truth for the backend URL.
+ * Loaded first on every page — sets window.STRATORACE_API_BASE so that
+ * dashboard-data.js and simulator.html both inherit the correct value.
  */
-const API_BASE = window.STRATORACE_API_BASE || 'https://stratorace-backend.up.railway.app';
 
-/* ─── Anthropic proxy (keeps key server-side) ─── */
+// ── ONLY LINE YOU EVER NEED TO CHANGE ────────────────────────────────────────
+const _RAILWAY_URL = 'https://stratorace-production.up.railway.app';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Expose globally so dashboard-data.js and simulator.html read the right URL
+window.STRATORACE_API_BASE = _RAILWAY_URL;
+const API_BASE = _RAILWAY_URL;
+
+/* ── Anthropic proxy (keeps key server-side via Railway) ─────────────────── */
 const SYSTEM_PROMPT = `You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps).
-
 You can answer questions about:
 - The PPO model, reward function, training process
 - Tyre degradation, pit strategy, F1 race strategy
@@ -15,7 +22,6 @@ You can answer questions about:
 - SHAP feature importance and what drives decisions
 - Specific races, drivers, or results
 - The StratoRace project and methodology
-
 Keep answers concise (2-4 sentences). If the user asks anything outside this scope, respond: "I can only answer questions about the StratoRace project and F1 strategy model."`;
 
 async function callClaude(messages, system = SYSTEM_PROMPT) {
