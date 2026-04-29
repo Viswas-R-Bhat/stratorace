@@ -389,7 +389,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 
 <script src="api.js"></script>
 <script>
-const API_BASE = window.STRATORACE_API_BASE || 'https://stratorace-backend.up.railway.app';
+
 document.addEventListener('mousemove',e=>{document.documentElement.style.setProperty('--cx',e.clientX+'px');document.documentElement.style.setProperty('--cy',e.clientY+'px')});
 
 Chart.defaults.color='#7a9ab5';Chart.defaults.borderColor='#1e3450';Chart.defaults.font.family="'DM Mono',monospace";Chart.defaults.font.size=11;
@@ -467,7 +467,7 @@ async function runSimulation(){
   const state=getState();
   let result;
   try {
-    const r = await fetch(`${API_BASE}/api/simulate`, {
+    const r = await fetch(window.STRATORACE_API_BASE + '/api/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state)
