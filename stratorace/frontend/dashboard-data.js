@@ -100,6 +100,8 @@ async function loadEvaluation() {
     var rewards = by_gp.map(function(r) { return +r.mean_reward.toFixed(2); });
 
     if (avaChartInst) avaChartInst.destroy();
+    var avaExisting = Chart.getChart(el('avaChart'));
+    if (avaExisting) avaExisting.destroy();
     var avaCtx = el('avaChart');
     if (avaCtx) {
       avaChartInst = new Chart(avaCtx, {
@@ -132,6 +134,8 @@ async function loadEvaluation() {
     }
 
     if (agreementChartInst) agreementChartInst.destroy();
+    var agExisting = Chart.getChart(el('agreementChart'));
+    if (agExisting) agExisting.destroy();
     var agCtx = el('agreementChart');
     if (agCtx) {
       agreementChartInst = new Chart(agCtx, {
@@ -156,6 +160,8 @@ async function loadEvaluation() {
 
     var pitErrors = by_gp.map(function(r) { return +r.mean_pit_error.toFixed(1); });
     if (timeSavedChartInst) timeSavedChartInst.destroy();
+    var tsExisting = Chart.getChart(el('timeSavedChart'));
+    if (tsExisting) tsExisting.destroy();
     var tsCtx = el('timeSavedChart');
     if (tsCtx) {
       timeSavedChartInst = new Chart(tsCtx, {
@@ -220,6 +226,8 @@ async function loadTyreDegradation() {
       });
 
     if (degChartInst) degChartInst.destroy();
+    var degExisting = Chart.getChart(el('degChart'));
+    if (degExisting) degExisting.destroy();
     var ctx = el('degChart');
     if (ctx) {
       degChartInst = new Chart(ctx, {
@@ -287,6 +295,8 @@ async function loadShap() {
 
     var top8Names = features.slice(0, 8).map(function(f) { return f.name; });
     if (shapScatterInst) shapScatterInst.destroy();
+    var shapExisting = Chart.getChart(el('shapScatter'));
+    if (shapExisting) shapExisting.destroy();
     var ssCtx = el('shapScatter');
     if (ssCtx) {
       shapScatterInst = new Chart(ssCtx, {
@@ -325,6 +335,8 @@ async function loadTraining() {
     function makeChart(id, datasets, yLabel) {
       var ctx = el(id);
       if (!ctx) return null;
+      var existing = Chart.getChart(ctx);
+      if (existing) existing.destroy();
       return new Chart(ctx, {
         type: 'line',
         data: { labels: labels, datasets: datasets },
@@ -428,6 +440,8 @@ async function loadPitWindows() {
     }
 
     if (pitWindowChartInst) pitWindowChartInst.destroy();
+    var pitExisting = Chart.getChart(el('pitWindowChart'));
+    if (pitExisting) pitExisting.destroy();
     var ctx = el('pitWindowChart');
     if (ctx && drivers.length) {
       pitWindowChartInst = new Chart(ctx, {
