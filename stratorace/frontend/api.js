@@ -5,7 +5,7 @@
  */
 
 // Single source of truth — only change this string to switch backends
-window.STRATORACE_API_BASE = 'https://stratorace-production.up.railway.app';
+window.STRATORACE_API_BASE = (window.location.hostname === 'stratorace.vercel.app' || window.location.hostname.endsWith('.vercel.app')) ? '' : 'https://stratorace-production.up.railway.app';
 
 /**
  * callClaude — proxies through Railway backend (key stays server-side).
