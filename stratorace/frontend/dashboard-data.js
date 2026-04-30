@@ -500,6 +500,8 @@ function hookSwitchTab() {
 /* ── Bootstrap ──────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async function() {
   hookSwitchTab();
+  _loaded[1] = true;   // prevent tab-switch double-load
+  _loaded[3] = true;   // prevent tab-switch double-load
   await initFilters();
   loadShap();
   loadTyreDegradation();
