@@ -1463,7 +1463,27 @@ aiBubble.addEventListener('click', () => {
   if (aiWindow.classList.contains('open')) aiInput.focus();
 });
 
+// REPLACE WITH:
 aiClose.addEventListener('click', () => aiWindow.classList.remove('open'));
+
+// Close when clicking outside the panel
+document.addEventListener('click', (e) => {
+  if (
+    aiWindow.classList.contains('open') &&
+    !aiWindow.contains(e.target) &&
+    !aiBubble.contains(e.target)
+  ) {
+    aiWindow.classList.remove('open');
+  }
+});
+
+// Fix: re-attach bubble after animations settle (300ms after load)
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    aiBubble.style.pointerEvents = 'auto';
+    aiBubble.style.zIndex = '201';
+  }, 300);
+});
 
 function addMessage(text, role) {
   const div = document.createElement('div');
