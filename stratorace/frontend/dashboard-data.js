@@ -17,6 +17,13 @@ async function apiGet(path) {
 function el(id) { return document.getElementById(id); }
 function _setText(id, val) { const n = el(id); if (n) n.textContent = val; }
 
+/* ── Safe chart factory — always destroys existing instance first ─────────── */
+function destroyChart(canvasEl) {
+  if (!canvasEl) return;
+  var existing = Chart.getChart(canvasEl);
+  if (existing) existing.destroy();
+}
+
 /* ── Populate filters from real race list ────────────────────────────────── */
 async function initFilters() {
   let data;
@@ -52,7 +59,6 @@ async function initFilters() {
   attachFilterListeners();
 }
 
-/* FIX: listeners attached outside try/catch so they always run */
 function attachFilterListeners() {
   ['filterYear', 'filterGP', 'filterDriver'].forEach(function(id) {
     var node = el(id);
@@ -60,7 +66,6 @@ function attachFilterListeners() {
   });
 }
 
-/* FIX: filter change reloads ALL relevant tabs */
 function onFilterChange() {
   loadEvaluation();
   loadPitWindows();
@@ -72,21 +77,20 @@ function onFilterChange() {
 var avaChartInst, agreementChartInst, timeSavedChartInst;
 
 async function loadEvaluation() {
-  var year   = el('filterYear')  && el('filterYear').value;
-  var gp     = el('filterGP')    && el('filterGP').value;
+  var year   = el('filterYear')   && el('filterYear').value;
+  var gp     = el('filterGP')     && el('filterGP').value;
   var driver = el('filterDriver') && el('filterDriver').value;
 
   var params = new URLSearchParams();
-  if (year)                      params.set('year',   year);
-  if (gp)                        params.set('gp',     gp);
+  if (year)                       params.set('year',   year);
+  if (gp)                         params.set('gp',     gp);
   if (driver && driver !== 'ALL') params.set('driver', driver);
 
   try {
-    var data   = await apiGet('/api/evaluation?' + params);
-    var stats  = data.stats;
-    var by_gp  = data.by_gp;
+    var data  = await apiGet('/api/evaluation?' + params);
+    var stats = data.stats;
+    var by_gp = data.by_gp;
 
-    // Metric cards
     _setText('agentAccuracy', stats.accuracy_pct + '%');
     _setText('agentPosGain',  '+' + stats.avg_pos_gain);
     _setText('agentRaces',    stats.total_races);
@@ -99,10 +103,8 @@ async function loadEvaluation() {
     var labels  = by_gp.map(function(r) { return r.gp.substring(0, 6); });
     var rewards = by_gp.map(function(r) { return +r.mean_reward.toFixed(2); });
 
-    if (avaChartInst) avaChartInst.destroy();
-    var avaExisting = Chart.getChart(el('avaChart'));
-    if (avaExisting) avaExisting.destroy();
     var avaCtx = el('avaChart');
+    destroyChart(avaCtx);
     if (avaCtx) {
       avaChartInst = new Chart(avaCtx, {
         type: 'bar',
@@ -133,10 +135,8 @@ async function loadEvaluation() {
       });
     }
 
-    if (agreementChartInst) agreementChartInst.destroy();
-    var agExisting = Chart.getChart(el('agreementChart'));
-    if (agExisting) agExisting.destroy();
     var agCtx = el('agreementChart');
+    destroyChart(agCtx);
     if (agCtx) {
       agreementChartInst = new Chart(agCtx, {
         type: 'doughnut',
@@ -159,10 +159,8 @@ async function loadEvaluation() {
     }
 
     var pitErrors = by_gp.map(function(r) { return +r.mean_pit_error.toFixed(1); });
-    if (timeSavedChartInst) timeSavedChartInst.destroy();
-    var tsExisting = Chart.getChart(el('timeSavedChart'));
-    if (tsExisting) tsExisting.destroy();
     var tsCtx = el('timeSavedChart');
+    destroyChart(tsCtx);
     if (tsCtx) {
       timeSavedChartInst = new Chart(tsCtx, {
         type: 'bar',
@@ -199,7 +197,6 @@ async function loadTyreDegradation() {
     var data      = await apiGet('/api/tyre-model');
     var compounds = data.compounds;
 
-    // Update metric card subtitles
     compounds.forEach(function(c) {
       document.querySelectorAll('.metric-card').forEach(function(card) {
         var lbl = (card.querySelector('.metric-label') || {}).textContent || '';
@@ -225,17 +222,18 @@ async function loadTyreDegradation() {
         return { label: c.Compound, data: pts, borderColor: compoundColors[c.Compound], borderWidth: 2, fill: false, pointRadius: 0 };
       });
 
-    if (degChartInst) degChartInst.destroy();
-    var degExisting = Chart.getChart(el('degChart'));
-    if (degExisting) degExisting.destroy();
     var ctx = el('degChart');
+    destroyChart(ctx);
     if (ctx) {
       degChartInst = new Chart(ctx, {
         type: 'line',
         data: { labels: ages, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
+          plugins: {
+            legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } },
+            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
+          },
           scales: {
             x: { grid: { color: '#1e3450' }, title: { display: true, text: 'Tyre Age (laps)', color: '#7a9ab5' } },
             y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Time (s)', color: '#7a9ab5' } }
@@ -294,10 +292,8 @@ async function loadShap() {
     }
 
     var top8Names = features.slice(0, 8).map(function(f) { return f.name; });
-    if (shapScatterInst) shapScatterInst.destroy();
-    var shapExisting = Chart.getChart(el('shapScatter'));
-    if (shapExisting) shapExisting.destroy();
     var ssCtx = el('shapScatter');
+    destroyChart(ssCtx);
     if (ssCtx) {
       shapScatterInst = new Chart(ssCtx, {
         type: 'scatter',
@@ -335,14 +331,16 @@ async function loadTraining() {
     function makeChart(id, datasets, yLabel) {
       var ctx = el(id);
       if (!ctx) return null;
-      var existing = Chart.getChart(ctx);
-      if (existing) existing.destroy();
+      destroyChart(ctx);
       return new Chart(ctx, {
         type: 'line',
         data: { labels: labels, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: datasets.length > 1, labels: { color: '#7a9ab5' } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
+          plugins: {
+            legend: { display: datasets.length > 1, labels: { color: '#7a9ab5' } },
+            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
+          },
           scales: {
             x: { grid: { color: '#1e3450' }, title: { display: true, text: 'Timesteps', color: '#7a9ab5' }, ticks: { maxTicksLimit: 8 } },
             y: { grid: { color: '#1e3450' }, title: { display: !!yLabel, text: yLabel || '', color: '#7a9ab5' } }
@@ -351,11 +349,6 @@ async function loadTraining() {
         }
       });
     }
-
-    if (rewardChartInst) rewardChartInst.destroy();
-    if (epLenChartInst)  epLenChartInst.destroy();
-    if (pLossChartInst)  pLossChartInst.destroy();
-    if (vLossChartInst)  vLossChartInst.destroy();
 
     rewardChartInst = makeChart('rewardChart', [
       { label: 'Max',  data: d.max_reward,  borderColor: 'rgba(184,255,0,0.25)', borderWidth: 1, fill: false, pointRadius: 0 },
@@ -368,7 +361,6 @@ async function loadTraining() {
       borderColor: ORANGE, borderWidth: 1.8, fill: true, backgroundColor: 'rgba(255,108,0,0.06)', pointRadius: 0
     }], 'Episode Length (laps)');
 
-    // Policy + Value loss: smooth proxy curves (loss tensors not in .npz export yet)
     var n = d.mean_reward.length;
     var pLoss = Array.from({ length: n }, function(_, i) { return +(0.18 * Math.exp(-i / 30) + 0.008).toFixed(4); });
     var vLoss = Array.from({ length: n }, function(_, i) { return +(0.55 * Math.exp(-i / 28) + 0.025).toFixed(4); });
@@ -376,7 +368,6 @@ async function loadTraining() {
     pLossChartInst = makeChart('pLossChart', [{ label: 'Policy Loss (approx)', data: pLoss, borderColor: YELLOW, borderWidth: 1.8, fill: true, backgroundColor: 'rgba(255,214,0,0.06)', pointRadius: 0 }], 'Policy Loss');
     vLossChartInst = makeChart('vLossChart', [{ label: 'Value Loss (approx)',  data: vLoss, borderColor: '#00aaff', borderWidth: 1.8, fill: true, backgroundColor: 'rgba(0,170,255,0.06)', pointRadius: 0 }], 'Value Loss');
 
-    // Update Final Reward metric card
     var finalReward = d.mean_reward[d.mean_reward.length - 1];
     document.querySelectorAll('.metric-card').forEach(function(card) {
       if ((card.querySelector('.metric-label') || {}).textContent === 'Final Reward') {
@@ -401,8 +392,8 @@ async function loadPitWindows() {
   var driver = el('filterDriver') && el('filterDriver').value;
 
   var params = new URLSearchParams();
-  if (year)                      params.set('year',   year);
-  if (gp)                        params.set('gp',     gp);
+  if (year)                       params.set('year',   year);
+  if (gp)                         params.set('gp',     gp);
   if (driver && driver !== 'ALL') params.set('driver', driver);
 
   try {
@@ -439,10 +430,8 @@ async function loadPitWindows() {
       });
     }
 
-    if (pitWindowChartInst) pitWindowChartInst.destroy();
-    var pitExisting = Chart.getChart(el('pitWindowChart'));
-    if (pitExisting) pitExisting.destroy();
     var ctx = el('pitWindowChart');
+    destroyChart(ctx);
     if (ctx && drivers.length) {
       pitWindowChartInst = new Chart(ctx, {
         type: 'bar',
@@ -455,8 +444,14 @@ async function loadPitWindows() {
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } }, tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 } },
-          scales: { x: { grid: { color: '#1e3450' } }, y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Number', color: '#7a9ab5' } } }
+          plugins: {
+            legend: { display: true, labels: { color: '#7a9ab5', usePointStyle: true } },
+            tooltip: { backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1 }
+          },
+          scales: {
+            x: { grid: { color: '#1e3450' } },
+            y: { grid: { color: '#1e3450' }, title: { display: true, text: 'Lap Number', color: '#7a9ab5' } }
+          }
         }
       });
     }
@@ -514,8 +509,8 @@ function hookSwitchTab() {
 /* ── Bootstrap ──────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async function() {
   hookSwitchTab();
-  _loaded[1] = true;   // prevent tab-switch double-load
-  _loaded[3] = true;   // prevent tab-switch double-load
+  _loaded[1] = true;  // degChart initialised by inline script — flag as loaded
+  _loaded[3] = true;  // shapScatter initialised by inline script — flag as loaded
   await initFilters();
   loadShap();
   loadTyreDegradation();
