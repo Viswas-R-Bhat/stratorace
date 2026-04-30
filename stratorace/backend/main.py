@@ -4,7 +4,7 @@ StratoRace FastAPI backend
 /api/simulate now uses the REAL trained PPO agent (ppo_pit_strategy_final.zip)
 via stable-baselines3.
 """
-
+import asyncio
 import os
 import json
 import numpy as np
@@ -186,12 +186,33 @@ async def chat(req: ChatRequest):
         "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}
     }
 
+    MAX_RETRIES = 4
+    BASE_DELAY  = 2.0   # seconds — doubles each attempt: 2, 4, 8, 16
+
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            json=payload,
-            headers={"content-type": "application/json"},
-        )
+        for attempt in range(MAX_RETRIES):
+            r = await client.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json=payload,
+                headers={"content-type": "application/json"},
+            )
+
+            if r.status_code == 200:
+                break  # success — exit retry loop
+
+            if r.status_code == 429:
+                if attempt < MAX_RETRIES - 1:
+                    wait = BASE_DELAY * (2 ** attempt)   # 2, 4, 8, 16 s
+                    await asyncio.sleep(wait)
+                    continue  # retry
+                else:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Gemini rate limit hit after 4 retries. Please wait a moment and try again."
+                    )
+            else:
+                # Any other non-200 error — fail immediately, no retry
+                raise HTTPException(status_code=r.status_code, detail=r.text)
 
     if r.status_code != 200:
         raise HTTPException(status_code=r.status_code, detail=r.text)
