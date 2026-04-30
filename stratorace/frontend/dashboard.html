@@ -1751,16 +1751,6 @@ const SYSTEM_PROMPT = `You are the StratoRace AI assistant. StratoRace is an F1 
 
 const conversationHistory = [];
 
-async function callClaude(messages, system=SYSTEM_PROMPT) {
-  const response = await fetch('https://stratorace-production.up.railway.app/api/chat', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, system, messages })
-  });
-  const data = await response.json();
-  return data.text || 'No response.';
-}
-
 /* floating panel */
 const aiBubble    = document.getElementById('aiBubble');
 const aiWindow    = document.getElementById('aiWindow');
