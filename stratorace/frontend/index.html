@@ -1529,17 +1529,8 @@ async function sendMessage() {
   const typingEl = showTyping();
 
   try {
-    const response = await fetch('https://stratorace-production.up.railway.app/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({messages: conversationHistory
-      , system:SYSTEM_PROMPT})
-    });
-
-    const data = await response.json();
+    const reply = await callClaude(conversationHistory, SYSTEM_PROMPT);
     typingEl.remove();
-
-    const reply = data.text || 'No response.';
     conversationHistory.push({ role: 'assistant', content: reply });
     addMessage(reply, 'assistant');
   } catch (err) {

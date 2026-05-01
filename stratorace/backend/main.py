@@ -4,6 +4,7 @@ StratoRace FastAPI backend
 /api/simulate now uses the REAL trained PPO agent (ppo_pit_strategy_final.zip)
 via stable-baselines3.
 """
+
 import asyncio
 import os
 import json
@@ -32,7 +33,7 @@ app.add_middleware(
 DATA        = Path(__file__).parent / "data"
 CHECKPOINTS = Path(__file__).parent / "checkpoints"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
 
 # ── Compound encoding (must match training env) ───────────────────────────────
 COMPOUND_IDX = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTER": 3}
@@ -40,49 +41,25 @@ COMPOUND_IDX = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTER": 3}
 # ── PPO model loader ──────────────────────────────────────────────────────────
 @lru_cache(maxsize=1)
 def load_ppo_model():
-    """
-    Load the trained PPO agent once at first request.
-    Requires stable-baselines3 in requirements.txt:
-        stable-baselines3==2.3.2
-        gymnasium==0.29.1
-    """
     from stable_baselines3 import PPO
-
     model_path = CHECKPOINTS / "ppo_pit_strategy_final.zip"
     if not model_path.exists():
         raise FileNotFoundError(
             f"PPO model not found at {model_path}. "
             "Make sure ppo_pit_strategy_final.zip is in stratorace/backend/checkpoints/"
         )
-    # device='cpu' ensures it loads on Railway (no GPU)
     model = PPO.load(str(model_path), device="cpu")
     return model
 
 
 def build_observation(req) -> np.ndarray:
-    """
-    Construct the 9-dimensional normalised observation vector.
-    Normalization confirmed by decoding _last_obs from the trained model weights.
-
-    Index  Feature              Normalization
-    -----  -------------------  ----------------------------
-      0    TyreAge              / 45
-      1    Race progress        lap / totalLaps
-      2    GapAhead             min(gapAhead / 30, 1.0)
-      3    LapsRemaining        (totalLaps - lap) / totalLaps
-      4    LapTimeDelta         raw seconds (0.0 = neutral)
-      5    GapBehind            min(gapBehind / 35, 1.0)
-      6    Compound             compound_idx / 3
-      7    TrackTemp            (trackTemp - 20) / 280
-      8    Rainfall             float(rainfall)
-    """
     laps_remaining = req.totalLaps - req.lap
     obs = np.array([
         req.tyreAge / 45.0,
         req.lap / max(req.totalLaps, 1),
         min(req.gapAhead / 30.0, 1.0),
         laps_remaining / max(req.totalLaps, 1),
-        0.0,                                          # LapTimeDelta unknown in simulator
+        0.0,
         min(req.gapBehind / 35.0, 1.0),
         COMPOUND_IDX.get(req.compound, 1) / 3.0,
         (req.trackTemp - 20.0) / 280.0,
@@ -91,7 +68,7 @@ def build_observation(req) -> np.ndarray:
     return obs
 
 
-# ── Data loaders (unchanged) ──────────────────────────────────────────────────
+# ── Data loaders ──────────────────────────────────────────────────────────────
 @lru_cache(maxsize=1)
 def load_shap():
     df = pd.read_csv(DATA / "shap_values.csv")
@@ -187,7 +164,7 @@ async def chat(req: ChatRequest):
     }
 
     MAX_RETRIES = 4
-    BASE_DELAY  = 2.0   # seconds — doubles each attempt: 2, 4, 8, 16
+    BASE_DELAY  = 2.0
 
     async with httpx.AsyncClient(timeout=30) as client:
         for attempt in range(MAX_RETRIES):
@@ -198,20 +175,19 @@ async def chat(req: ChatRequest):
             )
 
             if r.status_code == 200:
-                break  # success — exit retry loop
+                break
 
             if r.status_code == 429:
                 if attempt < MAX_RETRIES - 1:
-                    wait = BASE_DELAY * (2 ** attempt)   # 2, 4, 8, 16 s
+                    wait = BASE_DELAY * (2 ** attempt)
                     await asyncio.sleep(wait)
-                    continue  # retry
+                    continue
                 else:
                     raise HTTPException(
                         status_code=429,
                         detail="Gemini rate limit hit after 4 retries. Please wait a moment and try again."
                     )
             else:
-                # Any other non-200 error — fail immediately, no retry
                 raise HTTPException(status_code=r.status_code, detail=r.text)
 
     if r.status_code != 200:
@@ -228,24 +204,17 @@ async def chat(req: ChatRequest):
 # ── /api/simulate — REAL PPO INFERENCE ───────────────────────────────────────
 @app.post("/api/simulate")
 def simulate(req: SimRequest):
-    """
-    Run the trained PPO agent for real.
-    Uses ppo_pit_strategy_final.zip loaded via stable-baselines3.
-    Falls back to heuristic if model file is missing (e.g., first deploy).
-    """
     try:
         model = load_ppo_model()
         obs   = build_observation(req)
 
-        # Get action (0=STAY, 1=PIT)
         action, _ = model.predict(obs, deterministic=True)
         pit = bool(int(action) == 1)
 
-        # Get action probabilities for confidence
         obs_tensor = th.tensor(obs[None, :], dtype=th.float32)
         with th.no_grad():
-            dist      = model.policy.get_distribution(obs_tensor)
-            probs     = dist.distribution.probs.squeeze().numpy()
+            dist  = model.policy.get_distribution(obs_tensor)
+            probs = dist.distribution.probs.squeeze().numpy()
 
         pit_prob  = float(probs[1]) if len(probs) > 1 else (0.8 if pit else 0.2)
         stay_prob = float(probs[0]) if len(probs) > 1 else (1 - pit_prob)
@@ -253,9 +222,8 @@ def simulate(req: SimRequest):
         confidence    = int(round((pit_prob if pit else stay_prob) * 100))
         altConfidence = 100 - confidence
 
-        # Tyre model context (unchanged metadata)
-        tyre_r2  = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
-        deg_rate = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
+        tyre_r2   = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
+        deg_rate  = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
         cliff_lap = {"SOFT": 14, "MEDIUM": 22, "HARD": 30, "INTER": 18}
 
         comp      = req.compound
@@ -287,16 +255,14 @@ def simulate(req: SimRequest):
         }
 
     except FileNotFoundError as e:
-        # Graceful fallback to heuristic if model zip not deployed yet
         return _heuristic_simulate(req, warning=str(e))
     except Exception as e:
         return _heuristic_simulate(req, warning=f"Model error: {e}")
 
 
 def _heuristic_simulate(req: SimRequest, warning: str = "") -> dict:
-    """Fallback heuristic — only used if PPO model file is missing."""
-    tyre_r2  = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
-    deg_rate = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
+    tyre_r2   = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
+    deg_rate  = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
     cliff_lap = {"SOFT": 14, "MEDIUM": 22, "HARD": 30, "INTER": 18}
 
     comp      = req.compound
@@ -363,10 +329,10 @@ def evaluation(year: Optional[int] = None, gp: Optional[str] = None, driver: Opt
     correct = int((df["total_reward"] > 0).sum())
     return {
         "stats": {
-            "total_races":       total,
-            "correct_calls":     correct,
-            "accuracy_pct":      round(correct / total * 100, 1) if total else 0,
-            "avg_pos_gain":      round(float(df["mean_delta"].mean()), 2),
+            "total_races":        total,
+            "correct_calls":      correct,
+            "accuracy_pct":       round(correct / total * 100, 1) if total else 0,
+            "avg_pos_gain":       round(float(df["mean_delta"].mean()), 2),
             "avg_pit_error_laps": round(float(df["pit_timing_error"].abs().mean()), 1),
         },
         "by_gp": gp_agg.to_dict(orient="records"),
