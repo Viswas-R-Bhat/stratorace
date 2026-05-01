@@ -3,6 +3,14 @@
 StratoRace FastAPI backend
 /api/simulate now uses the REAL trained PPO agent (ppo_pit_strategy_final.zip)
 via stable-baselines3.
+
+FIXES applied (v2.0.1):
+  1. build_observation: track temp divisor corrected 280.0 → 40.0
+     (range is 20–60°C, so the correct scale is 40, not 280)
+  2. build_observation: index-4 was hardcoded 0.0; now uses position_norm
+     (position 1–20, normalised to 0–1). If your training env used a
+     different feature at index 4 (e.g. pit-loss delta, safety-car flag),
+     swap it here to match exactly what was used during training.
 """
 
 import asyncio
@@ -21,7 +29,7 @@ from typing import Optional
 import httpx
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="StratoRace API", version="2.0.0")
+app = FastAPI(title="StratoRace API", version="2.0.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,17 +61,42 @@ def load_ppo_model():
 
 
 def build_observation(req) -> np.ndarray:
+    """
+    Build the 9-element observation vector fed to the PPO policy.
+
+    Index layout (must exactly match your training environment's _get_obs()):
+        0  tyre_age_norm          tyreAge / 45
+        1  lap_progress           lap / totalLaps
+        2  gap_ahead_norm         gapAhead / 30   (clipped to 1)
+        3  laps_remaining_norm    lapsRemaining / totalLaps
+        4  position_norm          (position - 1) / 19   ← FIX: was hardcoded 0.0
+        5  gap_behind_norm        gapBehind / 35  (clipped to 1)
+        6  compound_norm          COMPOUND_IDX / 3
+        7  track_temp_norm        (trackTemp - 20) / 40 ← FIX: was / 280
+        8  rainfall               0.0 or 1.0
+
+    If your training env placed a *different* feature at index 4, update
+    position_norm below to match (common alternatives: pit_loss_delta/30,
+    safety_car_flag, tyre_life_pct).
+    """
     laps_remaining = req.totalLaps - req.lap
+
+    # FIX 1: correct normalisation — track temp range is 20–60°C → divide by 40
+    track_temp_norm = (req.trackTemp - 20.0) / 40.0
+
+    # FIX 2: replace the hardcoded 0.0 with position normalised to [0, 1]
+    position_norm = (req.position - 1) / 19.0
+
     obs = np.array([
-        req.tyreAge / 45.0,
-        req.lap / max(req.totalLaps, 1),
-        min(req.gapAhead / 30.0, 1.0),
-        laps_remaining / max(req.totalLaps, 1),
-        0.0,
-        min(req.gapBehind / 35.0, 1.0),
-        COMPOUND_IDX.get(req.compound, 1) / 3.0,
-        (req.trackTemp - 20.0) / 280.0,
-        float(req.rainfall),
+        req.tyreAge / 45.0,                          # 0
+        req.lap / max(req.totalLaps, 1),              # 1
+        min(req.gapAhead / 30.0, 1.0),               # 2
+        laps_remaining / max(req.totalLaps, 1),       # 3
+        position_norm,                                # 4  ← was 0.0
+        min(req.gapBehind / 35.0, 1.0),              # 5
+        COMPOUND_IDX.get(req.compound, 1) / 3.0,     # 6
+        track_temp_norm,                              # 7  ← was / 280.0
+        float(req.rainfall),                          # 8
     ], dtype=np.float32)
     return obs
 
@@ -136,7 +169,7 @@ class SimRequest(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "StratoRace API v2 — real PPO"}
+    return {"status": "ok", "service": "StratoRace API v2.0.1 — real PPO"}
 
 
 # ── /api/chat ─────────────────────────────────────────────────────────────────
@@ -231,7 +264,13 @@ def simulate(req: SimRequest):
         deg_score = req.tyreAge * deg_rate.get(comp, 0.09)
         cliff     = cliff_lap.get(comp, 22)
         cliff_bonus = float(np.power(max(0, req.tyreAge - cliff), 1.4) * 0.15) if req.tyreAge > cliff else 0.0
-        urgency   = deg_score + cliff_bonus + (1.8 if req.gapAhead > 8 else 0) + (2.5 if laps_left < 12 else 0) + (4.0 if req.rainfall and comp != "INTER" else 0)
+        urgency   = (
+            deg_score
+            + cliff_bonus
+            + (1.8 if req.gapAhead > 5 else 0)      # FIX: threshold lowered 8 → 5 to match realistic pit window
+            + (2.5 if laps_left < 12 else 0)
+            + (4.0 if req.rainfall and comp != "INTER" else 0)
+        )
 
         next_comp_map = {"SOFT": "MEDIUM", "MEDIUM": "HARD", "HARD": "MEDIUM", "INTER": "MEDIUM"}
         rec_compound  = next_comp_map[comp] if pit else comp
@@ -261,6 +300,7 @@ def simulate(req: SimRequest):
 
 
 def _heuristic_simulate(req: SimRequest, warning: str = "") -> dict:
+    """Fallback when the PPO .zip is missing or fails to load."""
     tyre_r2   = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
     deg_rate  = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
     cliff_lap = {"SOFT": 14, "MEDIUM": 22, "HARD": 30, "INTER": 18}
@@ -271,7 +311,7 @@ def _heuristic_simulate(req: SimRequest, warning: str = "") -> dict:
     deg_score = req.tyreAge * deg_rate[comp]
     cliff     = cliff_lap[comp]
     cliff_bonus = float(np.power(max(0, req.tyreAge - cliff), 1.4) * 0.15) if req.tyreAge > cliff else 0.0
-    gap_signal  = 1.8 if req.gapAhead > 8 else 0.0
+    gap_signal  = 1.8 if req.gapAhead > 5 else 0.0   # FIX: threshold lowered 8 → 5
     late_signal = 2.5 if laps_left < 12 else 0.0
     rain_signal = 4.0 if req.rainfall and comp != "INTER" else 0.0
     urgency     = deg_score + cliff_bonus + gap_signal + late_signal + rain_signal
