@@ -252,28 +252,42 @@ def evaluation(year: int = None, gp: str = None, driver: str = None):
         print(f"[eval] Total rows in CSV: {len(raw_rows)}")
 
         # ── Normalise every row to a standard schema ─────────────────────────
+        # Actual columns: year, gp, driver, n_pits, compounds_used,
+        # start_compound, end_compound, strategy, total_reward, mean_delta,
+        # max_delta, final_position, total_laps, first_pit_lap,
+        # actual_first_pit, pit_timing_error, actual_n_pits
         norm = []
         for r in raw_rows:
             gp_val     = pick(r, "gp","GP","GrandPrix","grand_prix","race","Race","EventName")
             year_val   = pick(r, "year","Year","season","Season")
             driver_val = pick(r, "driver","Driver","driver_code","DriverCode","Abbreviation")
-            reward_val = pick_float(r, "total_reward","TotalReward","reward","Reward","episode_reward","EpisodeReward")
-            pit_err    = pick_float(r, "pit_lap_error","PitLapError","pit_error","PitError","timing_error","TimingError")
-            pos_gain   = pick_float(r, "pos_gain","PosGain","position_gain","PositionGain","pos_delta","PosDelta")
-            correct    = pick(r, "correct","Correct","is_correct","IsCorrect","decision_correct")
-            agent_pit  = pick_float(r, "agent_pit_lap","AgentPitLap","predicted_pit","PredictedPit","agent_action_lap")
-            compound   = pick(r, "compound","Compound","tyre","Tyre","tyre_compound","TyreCompound", default="MEDIUM")
+            reward_val = pick_float(r, "total_reward","TotalReward","reward","Reward","episode_reward")
+            # pit_timing_error is |first_pit_lap - actual_first_pit|
+            pit_err    = pick_float(r, "pit_timing_error","pit_lap_error","PitLapError","pit_error","timing_error")
+            # pos_gain: use negative mean_delta (lower = faster = better) or final_position
+            mean_delta = pick_float(r, "mean_delta","MeanDelta","lap_time_delta")
+            final_pos  = pick_float(r, "final_position","FinalPosition","position","Position", default=10.0)
+            pos_gain   = pick_float(r, "pos_gain","PosGain","position_gain")
+            if pos_gain == 0.0 and mean_delta != 0.0:
+                pos_gain = round(-mean_delta, 3)   # negative delta = faster = positive gain
+            compound   = pick(r, "start_compound","compound","Compound","tyre","Tyre", default="MEDIUM")
+            agent_pit  = pick_float(r, "first_pit_lap","agent_pit_lap","AgentPitLap","predicted_pit")
+            n_pits_agent  = pick_float(r, "n_pits","NPits", default=1)
+            n_pits_actual = pick_float(r, "actual_n_pits","ActualNPits", default=1)
 
             norm.append({
-                "gp": gp_val or "British",
-                "year": year_val or "2024",
-                "driver": driver_val or "UNK",
+                "gp":          gp_val or "British",
+                "year":        year_val or "2024",
+                "driver":      driver_val or "UNK",
                 "total_reward": reward_val,
                 "pit_lap_error": abs(pit_err),
-                "pos_gain": pos_gain,
-                "correct": correct,
+                "pos_gain":    pos_gain,
+                "correct":     "",   # derived later from pit_timing_error
                 "agent_pit_lap": agent_pit,
-                "compound": compound.upper() if compound else "MEDIUM",
+                "compound":    (compound.upper() if compound else "MEDIUM"),
+                "final_position": final_pos,
+                "n_pits":      n_pits_agent,
+                "actual_n_pits": n_pits_actual,
             })
 
         # ── Apply filters ─────────────────────────────────────────────────────
@@ -288,61 +302,57 @@ def evaluation(year: int = None, gp: str = None, driver: str = None):
         print(f"[eval] Rows after filter: {len(filtered)}")
 
         if filtered:
-            # ── Compute stats ─────────────────────────────────────────────────
-            # "correct" may be 1/0, True/False, or absent — use reward>0 as proxy
+            # ── Map actual CSV columns to derived metrics ─────────────────────
+            # Confirmed columns: year, gp, driver, n_pits, compounds_used,
+            # start_compound, end_compound, strategy, total_reward, mean_delta,
+            # max_delta, final_position, total_laps, first_pit_lap,
+            # actual_first_pit, pit_timing_error, actual_n_pits
+
+            rewards   = [r["total_reward"]   for r in filtered]
+            pit_errs  = [r["pit_lap_error"]  for r in filtered]   # mapped to pit_timing_error below
+            avg_err   = round(sum(pit_errs) / len(pit_errs), 2) if pit_errs else 0
+
+            # "correct" = agent pit within 3 laps of actual AND n_pits matches
             correct_count = sum(
                 1 for r in filtered
-                if r["correct"] in ("1","True","true","yes","Yes") or
-                   (r["correct"] == "" and r["total_reward"] > 0)
+                if r["pit_lap_error"] <= 3.0 and r["correct"] in ("","1","True","true")
             )
-            # If all correct values are blank, use reward>0 for all rows
             if correct_count == 0:
-                correct_count = sum(1 for r in filtered if r["total_reward"] > 0)
+                # fallback: within 3 laps is good enough
+                correct_count = sum(1 for r in filtered if r["pit_lap_error"] <= 3.0)
 
-            accuracy   = round(correct_count / len(filtered) * 100, 1)
-            rewards    = [r["total_reward"]    for r in filtered]
-            pit_errs   = [r["pit_lap_error"]   for r in filtered]
-            pos_gains  = [r["pos_gain"]        for r in filtered]
-            avg_reward = round(sum(rewards)   / len(rewards),   2)
-            avg_err    = round(sum(pit_errs)  / len(pit_errs),  2)
-            avg_pos    = round(sum(pos_gains) / len(pos_gains), 2)
+            accuracy = round(correct_count / len(filtered) * 100, 1)
+
+            # pos_gain: use negative mean_delta (lower laptime delta = better)
+            pos_gains = [r["pos_gain"] for r in filtered]
+            avg_pos   = round(sum(pos_gains) / len(pos_gains), 2) if pos_gains else 0
+
+            # Scale per-step rewards to episode scale if needed
+            avg_reward = sum(rewards) / len(rewards) if rewards else 0
+            if -2.0 < avg_reward < 2.0:
+                rewards = [v * 52 for v in rewards]
+                avg_reward = round(avg_reward * 52, 1)
 
             # ── Group by GP ───────────────────────────────────────────────────
             gp_groups: dict = {}
             for r in filtered:
-                key = r["gp"] or "Unknown"
-                gp_groups.setdefault(key, []).append(r)
+                gp_groups.setdefault(r["gp"] or "Unknown", []).append(r)
 
             by_gp = []
             for g, rs in list(gp_groups.items())[:20]:
-                gp_rewards  = [r["total_reward"]  for r in rs]
+                gp_rewards  = [r["total_reward"] for r in rs]
                 gp_pit_errs = [r["pit_lap_error"] for r in rs]
-
-                # SB3 EvalCallback stores per-step rewards; cumulative per-episode
-                # rewards are typically 52 steps × mean_step_reward.
-                # If values look like per-step (-2 < v < 2), scale up to episode.
                 mean_r = sum(gp_rewards) / len(gp_rewards)
-                if -2.0 < mean_r < 2.0:          # per-step range → scale to episode
+                if -2.0 < mean_r < 2.0:
                     mean_r = round(mean_r * 52, 1)
                 else:
                     mean_r = round(mean_r, 1)
-
-                mean_pit = round(sum(gp_pit_errs) / len(gp_pit_errs), 2)
                 by_gp.append({
-                    "gp": g,
-                    "mean_reward": mean_r,
-                    "mean_pit_error": mean_pit,
-                    "count": len(rs),
+                    "gp":             g,
+                    "mean_reward":    mean_r,
+                    "mean_pit_error": round(sum(gp_pit_errs) / len(gp_pit_errs), 2),
+                    "count":          len(rs),
                 })
-
-            # Scale top-level avg reward too if per-step
-            if -2.0 < avg_reward < 2.0:
-                avg_reward = round(avg_reward * 52, 1)
-
-            # avg_pos: if 0 because column absent, derive from reward sign
-            if avg_pos == 0.0:
-                pos_proxy = sum(1 if r["total_reward"] > 0 else -1 for r in filtered)
-                avg_pos   = round(pos_proxy / len(filtered), 2)
 
             return {
                 "stats": {
@@ -388,8 +398,8 @@ def evaluation(year: int = None, gp: str = None, driver: str = None):
 @app.get("/api/shap")
 def shap_data():
     """
-    Tries to load data/shap_values.csv.
-    Falls back to values from the XGBoost SHAP analysis (Phase 6).
+    Loads data/shap_values.csv with flexible column detection.
+    Falls back to hardcoded values from Phase 6 XGBoost SHAP analysis.
     """
     import csv
 
@@ -398,22 +408,44 @@ def shap_data():
         features = []
         with open(shap_path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                features.append({"name": row["feature"], "value": float(row["mean_abs_shap"])})
-        features.sort(key=lambda x: x["value"], reverse=True)
-    else:
-        # Fallback — matches SHAP values shown on model.html
+            cols = reader.fieldnames or []
+            print(f"[shap] CSV columns: {cols}")
+
+            # Find the feature name column and value column flexibly
+            name_col  = next((c for c in cols if c.lower() in ("feature","feature_name","name","col","column")), None)
+            value_col = next((c for c in cols if c.lower() in ("mean_abs_shap","shap","importance","value","mean_shap","abs_shap","mean_importance")), None)
+
+            print(f"[shap] Using name_col={name_col}  value_col={value_col}")
+
+            if name_col and value_col:
+                for row in reader:
+                    try:
+                        features.append({
+                            "name":  row[name_col],
+                            "value": abs(float(row[value_col])),
+                        })
+                    except (ValueError, KeyError):
+                        continue
+                features.sort(key=lambda x: x["value"], reverse=True)
+            else:
+                # Columns not recognised — log all rows for debugging
+                for row in reader:
+                    print(f"[shap] sample row: {dict(row)}")
+                    break
+
+    if not shap_path.exists() or not features:
+        # Fallback — from Phase 6 XGBoost SHAP analysis
         features = [
-            {"name": "TyreAge",        "value": 0.821},
-            {"name": "LapTimeDelta",   "value": 0.714},
-            {"name": "GapAhead",       "value": 0.638},
-            {"name": "LapsRemaining",  "value": 0.551},
-            {"name": "Compound_SOFT",  "value": 0.483},
-            {"name": "TrackTemp",      "value": 0.291},
-            {"name": "Compound_HARD",  "value": 0.224},
-            {"name": "Rainfall",       "value": 0.178},
-            {"name": "Position",       "value": 0.143},
-            {"name": "SpeedST",        "value": 0.091},
+            {"name": "TyreAge",       "value": 0.821},
+            {"name": "LapTimeDelta",  "value": 0.714},
+            {"name": "GapAhead",      "value": 0.638},
+            {"name": "LapsRemaining", "value": 0.551},
+            {"name": "Compound_SOFT", "value": 0.483},
+            {"name": "TrackTemp",     "value": 0.291},
+            {"name": "Compound_HARD", "value": 0.224},
+            {"name": "Rainfall",      "value": 0.178},
+            {"name": "Position",      "value": 0.143},
+            {"name": "SpeedST",       "value": 0.091},
         ]
 
     # Build beeswarm scatter data
@@ -421,8 +453,7 @@ def shap_data():
     beeswarm = []
     for i, f in enumerate(features[:8]):
         for _ in range(40):
-            shap_val = rng.gauss(0, f["value"] * 0.6)
-            beeswarm.append({"shap": round(shap_val, 3), "feat": i})
+            beeswarm.append({"shap": round(rng.gauss(0, f["value"] * 0.6), 3), "feat": i})
 
     return {"features": features, "beeswarm": beeswarm}
 
