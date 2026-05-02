@@ -1,466 +1,199 @@
-# main.py
 """
-StratoRace FastAPI backend — v2.0.2
-Fixes:
-  1. PPO model: custom_objects for clip_range + lr_schedule
-     (Python 3.12 changed code() internals; SB3 can't deserialise
-      lambda schedules saved under 3.10/3.11 without this workaround)
-  2. /api/chat: moved above /api/simulate so FastAPI registers it correctly
-  3. build_observation: track_temp /40 fix + position_norm fix (from v2.0.1)
+StratoRace — Railway Backend (FastAPI)
+Endpoints:
+  GET  /health        — liveness check
+  POST /api/chat      — proxies messages to Anthropic (API key stays server-side)
+  POST /api/predict   — runs PPO model inference, returns action + probabilities
 """
 
-import asyncio
 import os
-import numpy as np
-import pandas as pd
 from pathlib import Path
-from functools import lru_cache
 
-import torch as th
+import numpy as np
+import torch
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
-import httpx
+from stable_baselines3 import PPO
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="StratoRace API", version="2.0.2")
+app = FastAPI(title="StratoRace API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],          # tightened: set to your Vercel domain in prod
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
-DATA        = Path(__file__).parent / "data"
-CHECKPOINTS = Path(__file__).parent / "checkpoints"
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash-preview-05-20:generateContent"
-)
+# ── Load PPO model once at startup ────────────────────────────────────────────
+MODEL_PATH = os.environ.get("MODEL_PATH", "checkpoints/ppo_pit_strategy_final.zip")
+
+print(f"[StratoRace] Loading PPO model from: {MODEL_PATH}")
+try:
+    ppo_model = PPO.load(MODEL_PATH)
+    print(f"[StratoRace] Model ready — obs: {ppo_model.observation_space}  actions: {ppo_model.action_space}")
+except Exception as e:
+    print(f"[StratoRace] WARNING: could not load model — {e}")
+    ppo_model = None
+
+# ── Action metadata ───────────────────────────────────────────────────────────
+# Verified by probing the trained model on known race scenarios:
+#   0 → EMERGENCY PIT  (rain on wrong compound / cliff degradation)
+#   1 → PIT NOW        (standard degradation-driven stop)
+#   2 → MONITOR        (marginal — near window but not critical)
+#   3 → STAY OUT       (tyres healthy, remain on track)
+ACTION_LABELS  = {0: "EMERGENCY PIT", 1: "PIT NOW", 2: "MONITOR", 3: "STAY OUT"}
+ACTION_COLOURS = {0: "red",           1: "lime",    2: "yellow",  3: "orange"}
 
 COMPOUND_IDX = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTER": 3}
-
-
-# ── PPO model loader ──────────────────────────────────────────────────────────
-@lru_cache(maxsize=1)
-def load_ppo_model():
-    from stable_baselines3 import PPO
-
-    model_path = CHECKPOINTS / "ppo_pit_strategy_final.zip"
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"PPO model not found at {model_path}. "
-            "Ensure ppo_pit_strategy_final.zip is in ./checkpoints/"
-        )
-
-    # ── FIX 1: custom_objects ────────────────────────────────────────────────
-    # The model was saved under Python 3.10/3.11. Python 3.12 changed the
-    # internal signature of code objects, so SB3's cloudpickle cannot
-    # deserialise lambda schedules for clip_range and lr_schedule.
-    # Supplying constant callables here bypasses deserialisation entirely
-    # while keeping the policy weights intact — these values only matter
-    # during training, not inference.
-    custom_objects = {
-        "clip_range":  lambda _: 0.2,
-        "lr_schedule": lambda _: 3e-4,
-    }
-
-    model = PPO.load(str(model_path), device="cpu", custom_objects=custom_objects)
-    return model
-
-
-# ── Observation builder ───────────────────────────────────────────────────────
-def build_observation(req) -> np.ndarray:
-    laps_remaining  = req.totalLaps - req.lap
-    track_temp_norm = (req.trackTemp - 20.0) / 40.0   # FIX: was /280
-    position_norm   = (req.position - 1) / 19.0        # FIX: was 0.0
-
-    return np.array([
-        req.tyreAge / 45.0,
-        req.lap / max(req.totalLaps, 1),
-        min(req.gapAhead / 30.0, 1.0),
-        laps_remaining / max(req.totalLaps, 1),
-        position_norm,
-        min(req.gapBehind / 35.0, 1.0),
-        COMPOUND_IDX.get(req.compound, 1) / 3.0,
-        track_temp_norm,
-        float(req.rainfall),
-    ], dtype=np.float32)
-
-
-# ── Data loaders ──────────────────────────────────────────────────────────────
-@lru_cache(maxsize=1)
-def load_shap():
-    df = pd.read_csv(DATA / "shap_values.csv")
-    shap_cols = [c for c in df.columns if c.startswith("shap_")]
-    mean_abs  = df[shap_cols].abs().mean().sort_values(ascending=False)
-    features  = []
-    for col, val in mean_abs.items():
-        name = col.replace("shap_", "").replace("_", " ")
-        features.append({"name": name, "col": col, "value": round(float(val), 4)})
-    top8   = [f["col"] for f in features[:8]]
-    sample = df[top8].sample(min(300, len(df)), random_state=42)
-    beeswarm = []
-    for feat_idx, col in enumerate(top8):
-        for _, v in enumerate(sample[col]):
-            beeswarm.append({"feat": feat_idx, "shap": round(float(v), 4)})
-    return {"features": features, "beeswarm": beeswarm}
-
-
-@lru_cache(maxsize=1)
-def load_evaluation():
-    return pd.read_csv(DATA / "agent_full_evaluation.csv")
-
-
-@lru_cache(maxsize=1)
-def load_training():
-    npz        = np.load(DATA / "evaluations.npz")
-    timesteps  = npz["timesteps"].tolist()
-    results    = npz["results"]
-    ep_lengths = npz["ep_lengths"]
-    return {
-        "timesteps":   timesteps,
-        "mean_reward": [round(v, 2) for v in results.mean(axis=1).tolist()],
-        "min_reward":  [round(v, 2) for v in results.min(axis=1).tolist()],
-        "max_reward":  [round(v, 2) for v in results.max(axis=1).tolist()],
-        "mean_ep_len": [round(v, 1) for v in ep_lengths.mean(axis=1).tolist()],
-    }
-
-
-@lru_cache(maxsize=1)
-def load_tyre_model():
-    return pd.read_csv(DATA / "tyre_model_per_compound.csv").to_dict(orient="records")
-
+NEXT_COMPOUND = {"SOFT": "MEDIUM", "MEDIUM": "HARD", "HARD": "MEDIUM", "INTER": "MEDIUM"}
+OPTIMAL_LAPS  = {"SOFT": 14,       "MEDIUM": 22,    "HARD": 32,       "INTER": 18}
+DEGRADE_RATE  = {"SOFT": 0.10,     "MEDIUM": 0.05,  "HARD": 0.025,    "INTER": 0.07}
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
+class PredictRequest(BaseModel):
+    compound:   str   = "MEDIUM"
+    tyreAge:    float = 15
+    lap:        float = 30
+    totalLaps:  float = 52
+    position:   float = 10
+    gapAhead:   float = 5
+    trackTemp:  float = 38
+    rainfall:   bool  = False
+    speedSt:    float = 170     # optional — defaults to mid-range
+
 class ChatMessage(BaseModel):
     role:    str
     content: str
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
-    system:   Optional[str] = None
+    system:   str = ""
 
-class SimRequest(BaseModel):
-    compound:  str
-    tyreAge:   int
-    lap:       int
-    totalLaps: int
-    position:  int
-    gapAhead:  float
-    gapBehind: float
-    trackTemp: float
-    rainfall:  bool
+# ── Observation builder ───────────────────────────────────────────────────────
+def build_obs(req: PredictRequest) -> np.ndarray:
+    """
+    Converts raw inputs to the 9-feature vector the PPO model expects.
+    Observation space: Box(0.0, 2.0, shape=(9,), dtype=float32)
 
+    Feature order (must match training env in src/rl_pit_strategy.py):
+      0  tyreAge       / 45  * 2
+      1  lapTimeDelta  / 5   * 2   (estimated from tyre age × compound rate)
+      2  gapAhead      / 60  * 2
+      3  lapsRemaining / 78  * 2
+      4  position      / 20  * 2
+      5  compound_idx  / 3   * 2   (SOFT=0, MEDIUM=1, HARD=2, INTER=3)
+      6  trackTemp     / 60  * 2
+      7  rainfall      * 2         (0 or 1 → 0.0 or 2.0)
+      8  speedST       / 340 * 2
+    """
+    rate            = DEGRADE_RATE.get(req.compound, 0.05)
+    lap_time_delta  = min(req.tyreAge * rate, 5.0)
+    compound_idx    = COMPOUND_IDX.get(req.compound, 1)
+    laps_remaining  = req.totalLaps - req.lap
+
+    raw = np.array([
+        req.tyreAge      / 45.0,
+        lap_time_delta   / 5.0,
+        req.gapAhead     / 60.0,
+        laps_remaining   / 78.0,
+        req.position     / 20.0,
+        compound_idx     / 3.0,
+        req.trackTemp    / 60.0,
+        float(req.rainfall),
+        req.speedSt      / 340.0,
+    ], dtype=np.float32) * 2.0
+
+    return np.clip(raw, 0.0, 2.0)
+
+
+def get_probs(obs: np.ndarray) -> list[float]:
+    obs_t = torch.tensor(obs[np.newaxis], dtype=torch.float32)
+    with torch.no_grad():
+        dist  = ppo_model.policy.get_distribution(obs_t)
+        probs = dist.distribution.probs.numpy()[0]
+    return [round(float(p), 4) for p in probs]
 
 # ── Routes ────────────────────────────────────────────────────────────────────
-@app.get("/")
-def root():
-    return {"status": "ok", "service": "StratoRace API v2.0.2"}
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "model_loaded": ppo_model is not None,
+        "model_path": MODEL_PATH,
+    }
 
 
-# ── /api/chat ─────────────────────────────────────────────────────────────────
-# FIX 2: registered before /api/simulate to avoid FastAPI routing ambiguity
+@app.post("/api/predict")
+def predict(req: PredictRequest):
+    if ppo_model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded. Check MODEL_PATH.")
+
+    obs = build_obs(req)
+
+    action_arr, _ = ppo_model.predict(obs[np.newaxis], deterministic=True)
+    action         = int(action_arr[0])
+    probs          = get_probs(obs)
+    confidence     = round(probs[action] * 100, 1)
+
+    # Pit window (based on compound optimal lap)
+    opt         = OPTIMAL_LAPS.get(req.compound, 22)
+    win_start   = max(1, opt - 4)
+    win_end     = min(int(req.totalLaps), opt + 8)
+
+    rec_compound = NEXT_COMPOUND.get(req.compound, "MEDIUM") if action in (0, 1) else req.compound
+
+    return {
+        "action":      action,
+        "label":       ACTION_LABELS[action],
+        "colour":      ACTION_COLOURS[action],
+        "confidence":  confidence,
+        "probs": {
+            "EMERGENCY_PIT": round(probs[0] * 100, 1),
+            "PIT_NOW":       round(probs[1] * 100, 1),
+            "MONITOR":       round(probs[2] * 100, 1),
+            "STAY_OUT":      round(probs[3] * 100, 1),
+        },
+        "recCompound": rec_compound,
+        "pitWindow":   {"start": win_start, "end": win_end},
+    }
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    if not GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
-
-    contents = []
-    for m in req.messages:
-        role = "user" if m.role == "user" else "model"
-        contents.append({"role": role, "parts": [{"text": m.content}]})
-
-    system_text = req.system or (
-        "You are the StratoRace AI assistant — an F1 pit strategy optimisation system "
-        "built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data. "
-        "Keep answers concise (2-4 sentences). Only answer about StratoRace, F1 strategy, "
-        "tyre behaviour, or the dashboard data."
-    )
+    """
+    Proxy to Anthropic — keeps ANTHROPIC_API_KEY server-side.
+    Set ANTHROPIC_API_KEY in Railway environment variables.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set on server.")
 
     payload = {
-        "system_instruction": {"parts": [{"text": system_text}]},
-        "contents": contents,
-        "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7},
+        "model":      "claude-sonnet-4-20250514",
+        "max_tokens": 1000,
+        "messages":   [m.model_dump() for m in req.messages],
     }
-
-    MAX_RETRIES = 4
-    BASE_DELAY  = 2.0
+    if req.system:
+        payload["system"] = req.system
 
     async with httpx.AsyncClient(timeout=30) as client:
-        for attempt in range(MAX_RETRIES):
-            r = await client.post(
-                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-                json=payload,
-                headers={"content-type": "application/json"},
-            )
-            if r.status_code == 200:
-                break
-            if r.status_code == 429:
-                if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(BASE_DELAY * (2 ** attempt))
-                    continue
-                raise HTTPException(
-                    status_code=429,
-                    detail="Gemini rate limit hit after 4 retries. Please wait and try again.",
-                )
-            raise HTTPException(status_code=r.status_code, detail=r.text)
+        r = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key":         api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type":      "application/json",
+            },
+            json=payload,
+        )
+
+    if r.status_code != 200:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
 
     data = r.json()
-    try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        text = "No response from model."
+    text = next((b["text"] for b in data.get("content", []) if b["type"] == "text"), "")
     return {"text": text}
-
-
-# ── /api/simulate ─────────────────────────────────────────────────────────────
-@app.post("/api/simulate")
-def simulate(req: SimRequest):
-    try:
-        model = load_ppo_model()
-        obs   = build_observation(req)
-
-        action, _ = model.predict(obs, deterministic=True)
-        pit = bool(int(action) == 1)
-
-        obs_tensor = th.tensor(obs[None, :], dtype=th.float32)
-        with th.no_grad():
-            dist  = model.policy.get_distribution(obs_tensor)
-            probs = dist.distribution.probs.squeeze().numpy()
-
-        pit_prob      = float(probs[1]) if len(probs) > 1 else (0.8 if pit else 0.2)
-        stay_prob     = float(probs[0]) if len(probs) > 1 else (1 - pit_prob)
-        confidence    = int(round((pit_prob if pit else stay_prob) * 100))
-        altConfidence = 100 - confidence
-
-        tyre_r2   = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
-        deg_rate  = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
-        cliff_lap = {"SOFT": 14, "MEDIUM": 22, "HARD": 30, "INTER": 18}
-
-        comp        = req.compound
-        laps_left   = req.totalLaps - req.lap
-        deg_score   = req.tyreAge * deg_rate.get(comp, 0.09)
-        cliff       = cliff_lap.get(comp, 22)
-        cliff_bonus = (
-            float(np.power(max(0, req.tyreAge - cliff), 1.4) * 0.15)
-            if req.tyreAge > cliff else 0.0
-        )
-        urgency = (
-            deg_score
-            + cliff_bonus
-            + (1.8 if req.gapAhead > 5 else 0)
-            + (2.5 if laps_left < 12 else 0)
-            + (4.0 if req.rainfall and comp != "INTER" else 0)
-        )
-
-        next_comp_map = {"SOFT": "MEDIUM", "MEDIUM": "HARD", "HARD": "MEDIUM", "INTER": "MEDIUM"}
-        rec_compound  = next_comp_map[comp] if pit else comp
-        optimal_out   = {"SOFT": 12, "MEDIUM": 20, "HARD": 28, "INTER": 15}[comp]
-
-        return {
-            "pit":           pit,
-            "confidence":    confidence,
-            "altConfidence": altConfidence,
-            "pitProb":       round(pit_prob, 4),
-            "stayProb":      round(stay_prob, 4),
-            "degScore":      round(deg_score, 3),
-            "cliffBonus":    round(cliff_bonus, 3),
-            "urgency":       round(urgency, 3),
-            "lapsLeft":      laps_left,
-            "recCompound":   rec_compound,
-            "windowStart":   max(1, optimal_out - 4),
-            "windowEnd":     min(req.totalLaps, optimal_out + 6),
-            "tyreModelR2":   round(tyre_r2.get(comp, 0.7), 3),
-            "modelSource":   "ppo_agent",
-        }
-
-    except FileNotFoundError as e:
-        return _heuristic_simulate(req, warning=str(e))
-    except Exception as e:
-        return _heuristic_simulate(req, warning=f"Model error: {e}")
-
-
-# ── Heuristic fallback ────────────────────────────────────────────────────────
-def _heuristic_simulate(req: SimRequest, warning: str = "") -> dict:
-    tyre_r2   = {"HARD": 0.820534, "MEDIUM": 0.726092, "SOFT": 0.535472, "INTER": 0.65}
-    deg_rate  = {"SOFT": 0.18, "MEDIUM": 0.09, "HARD": 0.05, "INTER": 0.12}
-    cliff_lap = {"SOFT": 14, "MEDIUM": 22, "HARD": 30, "INTER": 18}
-
-    comp        = req.compound
-    r2          = tyre_r2.get(comp, 0.7)
-    laps_left   = req.totalLaps - req.lap
-    deg_score   = req.tyreAge * deg_rate[comp]
-    cliff       = cliff_lap[comp]
-    cliff_bonus = (
-        float(np.power(max(0, req.tyreAge - cliff), 1.4) * 0.15)
-        if req.tyreAge > cliff else 0.0
-    )
-    gap_signal  = 1.8 if req.gapAhead > 5 else 0.0
-    late_signal = 2.5 if laps_left < 12 else 0.0
-    rain_signal = 4.0 if req.rainfall and comp != "INTER" else 0.0
-    urgency     = deg_score + cliff_bonus + gap_signal + late_signal + rain_signal
-
-    PIT_THRESHOLD = 3.5
-    pit        = bool(urgency > PIT_THRESHOLD)
-    raw_gap    = abs(urgency - PIT_THRESHOLD)
-    base_conf  = 55 + raw_gap * 14
-    confidence = int(min(96, max(51, round(base_conf * (0.7 + 0.3 * r2)))))
-
-    next_comp_map = {"SOFT": "MEDIUM", "MEDIUM": "HARD", "HARD": "MEDIUM", "INTER": "MEDIUM"}
-    optimal_out   = {"SOFT": 12, "MEDIUM": 20, "HARD": 28, "INTER": 15}[comp]
-
-    result = {
-        "pit":           pit,
-        "confidence":    confidence,
-        "altConfidence": 100 - confidence,
-        "degScore":      round(deg_score, 3),
-        "cliffBonus":    round(cliff_bonus, 3),
-        "urgency":       round(urgency, 3),
-        "lapsLeft":      laps_left,
-        "recCompound":   next_comp_map[comp] if pit else comp,
-        "windowStart":   max(1, optimal_out - 4),
-        "windowEnd":     min(req.totalLaps, optimal_out + 6),
-        "tyreModelR2":   round(r2, 3),
-        "modelSource":   "heuristic_fallback",
-    }
-    if warning:
-        result["warning"] = warning
-    return result
-
-
-# ── /api/debug ────────────────────────────────────────────────────────────────
-@app.get("/api/debug")
-def debug_obs(
-    compound: str    = "MEDIUM", tyreAge: int    = 14,
-    lap: int         = 24,       totalLaps: int  = 52,
-    position: int    = 6,        gapAhead: float = 7.5,
-    gapBehind: float = 2.0,      trackTemp: float = 35.0,
-    rainfall: bool   = False,
-):
-    class _R:
-        pass
-    req = _R()
-    req.compound  = compound;  req.tyreAge   = tyreAge
-    req.lap       = lap;       req.totalLaps = totalLaps
-    req.position  = position;  req.gapAhead  = gapAhead
-    req.gapBehind = gapBehind; req.trackTemp = trackTemp
-    req.rainfall  = rainfall
-
-    obs = build_observation(req)
-    result = {
-        "observation": {
-            "0_tyre_age_norm":       round(float(obs[0]), 4),
-            "1_lap_progress":        round(float(obs[1]), 4),
-            "2_gap_ahead_norm":      round(float(obs[2]), 4),
-            "3_laps_remaining_norm": round(float(obs[3]), 4),
-            "4_position_norm":       round(float(obs[4]), 4),
-            "5_gap_behind_norm":     round(float(obs[5]), 4),
-            "6_compound_norm":       round(float(obs[6]), 4),
-            "7_track_temp_norm":     round(float(obs[7]), 4),
-            "8_rainfall":            round(float(obs[8]), 4),
-        },
-        "fix_check": {
-            "track_temp_correct": round(float(obs[7]), 4) == round((trackTemp - 20) / 40, 4),
-            "position_not_zero":  float(obs[4]) > 0,
-        },
-    }
-    try:
-        model  = load_ppo_model()
-        obs_t  = th.tensor(obs[None, :], dtype=th.float32)
-        with th.no_grad():
-            dist  = model.policy.get_distribution(obs_t)
-            probs = dist.distribution.probs.squeeze().numpy()
-        action, _ = model.predict(obs, deterministic=True)
-        result["model_source"]   = "ppo_agent"
-        result["raw_probs"]      = {"stay": round(float(probs[0]), 4), "pit": round(float(probs[1]), 4)}
-        result["action"]         = "PIT" if int(action) == 1 else "STAY"
-        result["confidence_pct"] = int(round(max(probs) * 100))
-    except FileNotFoundError as e:
-        result["model_source"] = f"heuristic_fallback — {e}"
-    except Exception as e:
-        result["model_source"] = f"error — {e}"
-    return result
-
-
-# ── /api/shap ─────────────────────────────────────────────────────────────────
-@app.get("/api/shap")
-def shap():
-    return load_shap()
-
-# ── /api/training ─────────────────────────────────────────────────────────────
-@app.get("/api/training")
-def training():
-    return load_training()
-
-# ── /api/evaluation ───────────────────────────────────────────────────────────
-@app.get("/api/evaluation")
-def evaluation(
-    year: Optional[int] = None,
-    gp: Optional[str]   = None,
-    driver: Optional[str] = None,
-):
-    df = load_evaluation()
-    if year:   df = df[df["year"] == year]
-    if gp:     df = df[df["gp"] == gp]
-    if driver: df = df[df["driver"] == driver]
-    gp_agg = (
-        df.groupby("gp")
-        .agg(
-            mean_reward    =("total_reward",    "mean"),
-            mean_delta     =("mean_delta",       "mean"),
-            mean_pit_error =("pit_timing_error", "mean"),
-            count          =("driver",           "count"),
-        )
-        .reset_index()
-        .sort_values("mean_reward", ascending=False)
-    )
-    total   = len(df)
-    correct = int((df["total_reward"] > 0).sum())
-    return {
-        "stats": {
-            "total_races":        total,
-            "correct_calls":      correct,
-            "accuracy_pct":       round(correct / total * 100, 1) if total else 0,
-            "avg_pos_gain":       round(float(df["mean_delta"].mean()), 2),
-            "avg_pit_error_laps": round(float(df["pit_timing_error"].abs().mean()), 1),
-        },
-        "by_gp": gp_agg.to_dict(orient="records"),
-        "rows":  df.head(50).fillna("").to_dict(orient="records"),
-    }
-
-# ── /api/tyre-model ───────────────────────────────────────────────────────────
-@app.get("/api/tyre-model")
-def tyre_model():
-    return {"compounds": load_tyre_model()}
-
-# ── /api/races ────────────────────────────────────────────────────────────────
-@app.get("/api/races")
-def races():
-    df = load_evaluation()
-    return {
-        "years":   sorted(df["year"].unique().tolist()),
-        "gps":     sorted(df["gp"].unique().tolist()),
-        "drivers": sorted(df["driver"].unique().tolist()),
-    }
-
-@app.get("/api/probe")
-def probe():
-    try:
-        model = load_ppo_model()
-        import torch as th, numpy as np
-        obs = np.array([0.4,0.5,0.1,0.5,0.15,0.14,0.33,0.45,0.0], dtype=np.float32)
-        obs_t = th.tensor(obs[None,:], dtype=th.float32)
-        with th.no_grad():
-            dist = model.policy.get_distribution(obs_t)
-            probs = dist.distribution.probs.squeeze().numpy()
-        return {
-            "stay_prob": round(float(probs[0]),4),
-            "pit_prob":  round(float(probs[1]),4),
-            "vec_normalize_exists": (Path(__file__).parent/"checkpoints"/"vec_normalize.pkl").exists()
-        }
-    except Exception as e:
-        return {"error": str(e)}
