@@ -446,3 +446,21 @@ def races():
         "gps":     sorted(df["gp"].unique().tolist()),
         "drivers": sorted(df["driver"].unique().tolist()),
     }
+
+@app.get("/api/probe")
+def probe():
+    try:
+        model = load_ppo_model()
+        import torch as th, numpy as np
+        obs = np.array([0.4,0.5,0.1,0.5,0.15,0.14,0.33,0.45,0.0], dtype=np.float32)
+        obs_t = th.tensor(obs[None,:], dtype=th.float32)
+        with th.no_grad():
+            dist = model.policy.get_distribution(obs_t)
+            probs = dist.distribution.probs.squeeze().numpy()
+        return {
+            "stay_prob": round(float(probs[0]),4),
+            "pit_prob":  round(float(probs[1]),4),
+            "vec_normalize_exists": (Path(__file__).parent/"checkpoints"/"vec_normalize.pkl").exists()
+        }
+    except Exception as e:
+        return {"error": str(e)}
