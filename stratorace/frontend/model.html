@@ -202,7 +202,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
   <!-- ARCHITECTURE -->
   <div class="model-section">
     <div class="section-heading reveal">Architecture Diagram</div>
-    <p class="section-sub reveal d1">State observations flow through two shared hidden layers before branching into a policy head (action probabilities) and a value head (state value estimate).</p>
+    <p class="section-sub reveal d1">State observations flow through two shared hidden layers (FC 128 · Tanh) before branching into a policy head (4-action probability distribution) and a value head (state value estimate). Activation is Tanh throughout — not ReLU.</p>
 
     <div class="arch-diagram reveal d2">
       <div class="arch-flow">
@@ -236,9 +236,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
             <div class="arch-title">Actor-Critic Network</div>
             <div class="arch-desc">Shared MLP backbone</div>
             <div class="ppo-layers">
-              <div class="ppo-layer l1">FC 256 · ReLU</div>
-              <div class="ppo-layer l2">FC 128 · ReLU</div>
-              <div class="ppo-layer l3">FC 64 · ReLU</div>
+              <div class="ppo-layer l1">FC 128 · Tanh</div>
+              <div class="ppo-layer l2">FC 128 · Tanh</div>
             </div>
           </div>
         </div>
@@ -250,10 +249,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
           <div class="arch-box lime">
             <div class="arch-icon">🎯</div>
             <div class="arch-title">Policy Head</div>
-            <div class="arch-desc">π(a|s) — action probability</div>
+            <div class="arch-desc">π(a|s) — Discrete(4) action probabilities</div>
             <div class="ppo-layers" style="margin-top:.75rem">
-              <div class="ppo-layer l2">FC 32 · ReLU</div>
-              <div class="ppo-layer out">Softmax → {PIT, STAY}</div>
+              <div class="ppo-layer l2">FC 128 · Tanh</div>
+              <div class="ppo-layer out">Softmax → {0,1,2,3}</div>
             </div>
           </div>
         </div>
@@ -267,7 +266,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
             <div class="arch-title">Value Head</div>
             <div class="arch-desc">V(s) — state value estimate</div>
             <div class="ppo-layers" style="margin-top:.75rem">
-              <div class="ppo-layer" style="background:rgba(255,108,0,.12);border:1px solid rgba(255,108,0,.25);width:90%">FC 32 · ReLU</div>
+              <div class="ppo-layer" style="background:rgba(255,108,0,.12);border:1px solid rgba(255,108,0,.25);width:90%">FC 128 · Tanh</div>
               <div class="ppo-layer" style="background:rgba(255,108,0,.22);border:1px solid rgba(255,108,0,.4);width:50%;color:var(--orange)">Linear → ℝ</div>
             </div>
           </div>
@@ -300,7 +299,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
       <div class="pipeline-step reveal d1">
         <div class="ps-num">04</div>
         <div class="ps-title">Environment</div>
-        <div class="ps-desc">Custom OpenAI Gym environment wraps each race. Each step = one lap. Observation = 9-dimensional state vector. Actions = {PIT, STAY}.</div>
+        <div class="ps-desc">Custom OpenAI Gym environment wraps each race. Each step = one lap. Observation = 9-dimensional state vector normalised to [0, 2]. Actions = Discrete(4): {0: Emergency Pit, 1: Pit Now, 2: Monitor, 3: Stay Out}.</div>
       </div>
       <div class="pipeline-step reveal d2">
         <div class="ps-num">05</div>
@@ -382,8 +381,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
       </div>
       <div class="pipeline-step reveal d2">
         <div class="ps-num" style="color:var(--orange)">⚠</div>
-        <div class="ps-title">Binary Action Space</div>
-        <div class="ps-desc">{PIT, STAY} only. Compound selection is post-hoc heuristic. Future: multi-discrete action space including compound choice.</div>
+        <div class="ps-title">No Compound Selection</div>
+        <div class="ps-desc">Action 1 (PIT NOW) uses a heuristic to pick the next compound. Future: compound selection as part of the discrete action itself (multi-discrete).</div>
       </div>
       <div class="pipeline-step reveal d3">
         <div class="ps-num" style="color:var(--orange)">⚠</div>
@@ -449,8 +448,25 @@ const LIME='#B8FF00',ORANGE='#FF6C00',RED='#E8002D',YELLOW='#FFD600';
   obs.observe(container);
 })();
 
-/* shapDist loaded by model-data.js */
-/* featureInteraction loaded by model-data.js */
+/* SHAP distribution */
+new Chart(document.getElementById('shapDist'),{
+  type:'bar',
+  data:{labels:['<-0.4','-0.4–-0.2','-0.2–0','0–0.2','0.2–0.4','0.4–0.6','>0.6'],
+  datasets:[{label:'Frequency',data:[42,88,124,210,168,95,54],backgroundColor:'rgba(184,255,0,0.4)',borderColor:LIME,borderWidth:1}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1}},scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'}}}}
+});
+
+/* Feature interaction scatter */
+const pts=Array.from({length:200},()=>({
+  x:+(Math.random()*38+1).toFixed(0),
+  y:+((Math.random()-.2)*.9).toFixed(3)
+}));
+new Chart(document.getElementById('featureInteraction'),{
+  type:'scatter',
+  data:{datasets:[{label:'TyreAge vs LapTimeDelta',data:pts,backgroundColor:'rgba(184,255,0,0.3)',pointRadius:3}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1,callbacks:{label:p=>`Age ${p.raw.x} laps · Δ ${p.raw.y}s`}}},scales:{x:{grid:{color:'#1e3450'},title:{display:true,text:'Tyre Age',color:'#7a9ab5'}},y:{grid:{color:'#1e3450'},title:{display:true,text:'LapTimeDelta',color:'#7a9ab5'}}}}
+});
+
 /* AI */
 const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps). Answer concisely (2-4 sentences). Only answer about StratoRace, F1 strategy, or the model architecture. If outside scope: "I can only answer questions about the StratoRace project and F1 strategy model."`;
 const history=[];
@@ -459,10 +475,8 @@ aiBubble.addEventListener('click',()=>{aiWindow.classList.toggle('open');if(aiWi
 aiClose.addEventListener('click',()=>aiWindow.classList.remove('open'));
 function addMsg(text,role){const d=document.createElement('div');d.className=`ai-msg ${role}`;d.textContent=text;aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
 function showTyping(){const d=document.createElement('div');d.className='ai-typing';d.innerHTML='<span></span><span></span><span></span>';aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
-async function send(){const text=aiInput.value.trim();if(!text)return;aiInput.value='';aiSend.disabled=true;addMsg(text,'user');history.push({role:'user',content:text});const t=showTyping();try{const reply=await callClaude(history,SYSTEM);t.remove();history.push({role:'assistant',content:reply});addMsg(reply,'assistant')}catch{t.remove();addMsg('Connection error.','assistant')}aiSend.disabled=false;aiInput.focus()}
+async function send(){const text=aiInput.value.trim();if(!text)return;aiInput.value='';aiSend.disabled=true;addMsg(text,'user');history.push({role:'user',content:text});const t=showTyping();try{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYSTEM,messages:history})});const data=await r.json();t.remove();const reply=data.content?.find(b=>b.type==='text')?.text||'No response.';history.push({role:'assistant',content:reply});addMsg(reply,'assistant')}catch{t.remove();addMsg('Connection error.','assistant')}aiSend.disabled=false;aiInput.focus()}
 aiSend.addEventListener('click',send);aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 </script>
-<script src="api.js"></script>
-<script src="model-data.js"></script>
 </body>
 </html>

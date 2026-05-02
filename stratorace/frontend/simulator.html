@@ -8,15 +8,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- api.js sets window.STRATORACE_API_BASE and exposes callClaude() -->
+<script src="api.js"></script>
 
 <style>
 :root {
-  --bg:#060c1a;--surf0:#0a1628;--surf1:#0f1f35;--surf2:#162840;
-  --border:#1e3450;--lime:#B8FF00;--orange:#FF6C00;--red:#E8002D;
-  --yellow:#FFD600;--white:#EBEBEB;--muted:#7a9ab5;
-  --lime-glow:rgba(184,255,0,0.18);--lime-dim:rgba(184,255,0,0.07);
-  --font-d:'Rajdhani',sans-serif;--font-b:'Barlow',sans-serif;--font-m:'DM Mono',monospace;
-  --cx:50%;--cy:50%;--nav-h:56px;
+  --bg:#060c1a; --surf0:#0a1628; --surf1:#0f1f35; --surf2:#162840;
+  --border:#1e3450; --lime:#B8FF00; --orange:#FF6C00; --red:#E8002D;
+  --yellow:#FFD600; --white:#EBEBEB; --muted:#7a9ab5;
+  --lime-glow:rgba(184,255,0,0.18); --lime-dim:rgba(184,255,0,0.07);
+  --font-d:'Rajdhani',sans-serif; --font-b:'Barlow',sans-serif; --font-m:'DM Mono',monospace;
+  --cx:50%; --cy:50%; --nav-h:56px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -47,30 +49,23 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 
 /* ─── INPUT PANEL ─── */
 .input-panel{background:var(--surf0);border:1px solid var(--border);border-radius:16px;overflow:hidden;position:sticky;top:calc(var(--nav-h)+1.5rem)}
-
 .input-panel-header{background:var(--surf1);border-bottom:1px solid var(--border);padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
 .iph-title{font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--white)}
 .iph-badge{font-family:var(--font-m);font-size:.62rem;letter-spacing:.08em;color:var(--lime);border:1px solid rgba(184,255,0,.3);padding:.15rem .45rem;border-radius:4px}
-
 .input-body{padding:1.5rem}
+
+/* API status */
+.api-status{display:flex;align-items:center;gap:.5rem;font-family:var(--font-m);font-size:.62rem;letter-spacing:.06em;padding:.4rem .75rem;border-radius:6px;margin-bottom:1.25rem;border:1px solid var(--border);background:var(--surf2)}
+.api-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+.api-dot.ok{background:var(--lime);box-shadow:0 0 6px rgba(184,255,0,.5)}
+.api-dot.err{background:var(--red)}
+.api-dot.checking{animation:pulse-dot 1s infinite}
+#apiStatusText{color:var(--muted)}
 
 .field{margin-bottom:1.1rem}
 .field label{display:block;font-family:var(--font-m);font-size:.65rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.35rem}
-
-.field select,.field input[type=text]{
-  width:100%;background:var(--surf1);border:1px solid var(--border);color:var(--white);
-  font-family:var(--font-m);font-size:.78rem;padding:.55rem .8rem;border-radius:8px;
-  outline:none;transition:border-color .2s;appearance:none;
-}
-.field select:focus,.field input[type=text]:focus{border-color:var(--lime)}
-
-.field input[type=range]{
-  width:100%;height:5px;background:var(--surf2);border-radius:3px;outline:none;
-  border:none;cursor:pointer;appearance:none;accent-color:var(--lime);padding:0;
-}
-
+.field input[type=range]{width:100%;height:5px;background:var(--surf2);border-radius:3px;outline:none;border:none;cursor:pointer;appearance:none;accent-color:var(--lime);padding:0}
 .range-row{display:flex;justify-content:space-between;margin-top:.25rem}
-.range-val{font-family:var(--font-m);font-size:.68rem;color:var(--lime)}
 .range-bounds{font-family:var(--font-m);font-size:.62rem;color:var(--muted)}
 
 .compound-selector{display:flex;gap:.5rem;margin-top:.1rem}
@@ -79,30 +74,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .compound-btn.active.MEDIUM{border-color:var(--yellow);background:rgba(255,214,0,.1);color:var(--yellow)}
 .compound-btn.active.HARD{border-color:rgba(235,235,235,.5);background:rgba(235,235,235,.07);color:var(--white)}
 .compound-btn.active.INTER{border-color:#00c850;background:rgba(0,200,80,.1);color:#00c850}
-
-/* Rainfall — own class so setCompound() never resets these */
-.rainfall-btn{flex:1;padding:.5rem .25rem;background:var(--surf1);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s;font-family:var(--font-m);font-size:.7rem;letter-spacing:.06em;color:var(--muted)}
-.rainfall-btn.active.dry{border-color:var(--yellow);background:rgba(255,214,0,.1);color:var(--yellow)}
-.rainfall-btn.active.wet{border-color:#00aaff;background:rgba(0,170,255,.1);color:#00aaff}
-
 .field-divider{height:1px;background:var(--border);margin:1.25rem 0}
 
-.btn-run{
-  width:100%;padding:1rem;background:var(--lime);color:#060c1a;
-  font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;
-  border:none;border-radius:10px;cursor:pointer;transition:all .25s;
-  display:flex;align-items:center;justify-content:center;gap:.6rem;
-}
+.btn-run{width:100%;padding:1rem;background:var(--lime);color:#060c1a;font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;border:none;border-radius:10px;cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:.6rem}
 .btn-run:hover{background:#d4ff33;transform:translateY(-2px);box-shadow:0 8px 24px rgba(184,255,0,.35)}
 .btn-run:active{transform:translateY(0)}
-.btn-run.loading{background:var(--surf2);color:var(--muted);pointer-events:none}
-
-.btn-reset{
-  width:100%;padding:.6rem;background:transparent;color:var(--muted);
-  font-family:var(--font-m);font-size:.72rem;letter-spacing:.08em;
-  border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;margin-top:.6rem;
-}
-.btn-reset:hover{border-color:var(--border);color:var(--white)}
+.btn-run:disabled{background:var(--surf2);color:var(--muted);pointer-events:none;transform:none;box-shadow:none}
+.btn-reset{width:100%;padding:.6rem;background:transparent;color:var(--muted);font-family:var(--font-m);font-size:.72rem;letter-spacing:.08em;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;margin-top:.6rem}
+.btn-reset:hover{color:var(--white)}
 
 /* ─── OUTPUT PANEL ─── */
 .output-panel{display:flex;flex-direction:column;gap:1.25rem}
@@ -112,21 +91,44 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .out-placeholder-text{font-family:var(--font-d);font-weight:600;font-size:.95rem;letter-spacing:.05em;color:var(--muted)}
 .out-placeholder-sub{font-size:.8rem;color:var(--border)}
 
-/* decision card */
-.decision-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.err-card{background:rgba(232,0,45,.06);border:1px solid rgba(232,0,45,.25);border-radius:12px;padding:1rem 1.25rem;font-size:.82rem;color:var(--red);display:none;line-height:1.6}
+
+/* DECISION CARD */
+.decision-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:none}
 .dc-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surf1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
 .dc-action-badge{display:inline-flex;align-items:center;gap:.6rem;padding:.65rem 1.4rem;border-radius:8px;font-family:var(--font-d);font-weight:700;font-size:1.2rem;letter-spacing:.06em}
-.dc-action-badge.PIT{background:rgba(184,255,0,.12);color:var(--lime);border:1px solid rgba(184,255,0,.3)}
-.dc-action-badge.STAY{background:rgba(255,108,0,.1);color:var(--orange);border:1px solid rgba(255,108,0,.3)}
+.badge-0{background:rgba(232,0,45,.15);color:var(--red);border:1px solid rgba(232,0,45,.4)}
+.badge-1{background:rgba(184,255,0,.12);color:var(--lime);border:1px solid rgba(184,255,0,.3)}
+.badge-2{background:rgba(255,214,0,.10);color:var(--yellow);border:1px solid rgba(255,214,0,.3)}
+.badge-3{background:rgba(255,108,0,.10);color:var(--orange);border:1px solid rgba(255,108,0,.3)}
 .dc-conf{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
 .dc-conf-label{font-family:var(--font-m);font-size:.62rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-.dc-conf-val{font-family:var(--font-d);font-weight:700;font-size:1.8rem;color:var(--lime);line-height:1}
+.dc-conf-val{font-family:var(--font-d);font-weight:700;font-size:1.8rem;line-height:1}
+.conf-c0{color:var(--red)}.conf-c1{color:var(--lime)}.conf-c2{color:var(--yellow)}.conf-c3{color:var(--orange)}
+
 .dc-body{padding:1.5rem}
-
 .conf-bar{height:6px;background:var(--surf2);border-radius:3px;margin-bottom:1.25rem;overflow:hidden}
-.conf-fill{height:100%;border-radius:3px;background:linear-gradient(to right,rgba(184,255,0,.35),var(--lime));transition:width .9s cubic-bezier(.4,0,.2,1);width:0}
+.conf-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);width:0}
+.fill-0{background:linear-gradient(to right,rgba(232,0,45,.35),var(--red))}
+.fill-1{background:linear-gradient(to right,rgba(184,255,0,.35),var(--lime))}
+.fill-2{background:linear-gradient(to right,rgba(255,214,0,.35),var(--yellow))}
+.fill-3{background:linear-gradient(to right,rgba(255,108,0,.35),var(--orange))}
 
-/* factors grid */
+/* 4-action prob grid */
+.prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1.25rem}
+.prob-row{background:var(--surf1);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem}
+.prob-row.is-chosen{border-color:rgba(184,255,0,.35);background:var(--lime-dim)}
+.prob-row.is-chosen-0{border-color:rgba(232,0,45,.35);background:rgba(232,0,45,.07)}
+.prob-row.is-chosen-2{border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.06)}
+.prob-row.is-chosen-3{border-color:rgba(255,108,0,.3);background:rgba(255,108,0,.07)}
+.prob-label{font-family:var(--font-m);font-size:.6rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:.35rem}
+.prob-val{font-family:var(--font-d);font-weight:700;font-size:1.05rem;margin-bottom:.35rem}
+.pv-0{color:var(--red)}.pv-1{color:var(--lime)}.pv-2{color:var(--yellow)}.pv-3{color:var(--orange)}
+.prob-track{height:5px;background:var(--surf2);border-radius:3px;overflow:hidden}
+.prob-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.pf-0{background:var(--red)}.pf-1{background:var(--lime)}.pf-2{background:var(--yellow)}.pf-3{background:var(--orange)}
+
+/* factors */
 .factors-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
 .factor{background:var(--surf1);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
 .factor-label{font-family:var(--font-m);font-size:.62rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem}
@@ -134,53 +136,41 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .factor-val.lime{color:var(--lime)}.factor-val.orange{color:var(--orange)}.factor-val.red{color:var(--red)}.factor-val.yellow{color:var(--yellow)}
 .factor-sub{font-size:.72rem;color:var(--muted);margin-top:.15rem}
 
-/* alternatives */
-.alternatives{background:var(--surf1);border:1px solid var(--border);border-radius:10px;padding:1rem 1.1rem}
-.alt-title{font-family:var(--font-m);font-size:.65rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.75rem}
-.alt-row{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid rgba(30,52,80,.5)}
-.alt-row:last-child{border-bottom:none}
-.alt-action{font-family:var(--font-d);font-weight:600;font-size:.9rem;color:var(--white)}
-.alt-bars{flex:1;margin:0 1rem}
-.alt-bar-track{height:5px;background:var(--surf2);border-radius:3px;overflow:hidden}
-.alt-bar-fill{height:100%;border-radius:3px;transition:width .9s ease}
-.alt-conf-val{font-family:var(--font-m);font-size:.72rem;color:var(--muted);min-width:36px;text-align:right}
-
-/* AI explain */
-.ai-explain-card{background:var(--surf0);border:1px solid rgba(184,255,0,.2);border-radius:16px;padding:1.5rem;display:none}
-.ai-explain-card.open{display:block;animation:fadeIn .3s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.aec-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem}
-.aec-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
-.aec-title{font-family:var(--font-d);font-weight:700;font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--lime)}
-.aec-body{font-size:.88rem;color:var(--white);line-height:1.75}
-.aec-typing{display:flex;gap:4px;align-items:center}
-.aec-typing span{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite}
-.aec-typing span:nth-child(2){animation-delay:.2s}.aec-typing span:nth-child(3){animation-delay:.4s}
-@keyframes typing{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
-
-/* pit window recommender */
-.pit-window-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;padding:1.5rem;display:none}
-.pit-window-card.open{display:block;animation:fadeIn .3s ease}
+/* pit window */
+.pit-window-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
 .pwc-title{font-family:var(--font-d);font-weight:700;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;color:var(--white);margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
-.window-bar-section{margin-bottom:1rem}
 .wb-label{font-family:var(--font-m);font-size:.7rem;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between}
 .wb-label span{color:var(--lime)}
 .window-track{position:relative;height:16px;background:var(--surf2);border-radius:8px}
 .window-optimal{position:absolute;top:0;bottom:0;border-radius:8px;background:linear-gradient(to right,rgba(184,255,0,.2),rgba(184,255,0,.5));transition:all .8s ease}
-.window-current{position:absolute;top:-4px;bottom:-4px;width:3px;border-radius:2px;background:var(--white);transition:left .5s ease}
+.window-current{position:absolute;top:-4px;bottom:-4px;width:3px;border-radius:2px;background:var(--white);transition:left .5s ease;box-shadow:0 0 6px rgba(255,255,255,.4)}
 .window-labels{display:flex;justify-content:space-between;font-family:var(--font-m);font-size:.6rem;color:var(--border);margin-top:.3rem}
+.win-desc{font-size:.78rem;color:var(--muted);line-height:1.6;margin-top:.75rem}
 
-/* chart */
-.chart-card{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.5rem}
+/* history chart */
+.chart-card{background:var(--surf0);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.5rem;display:none}
 .chart-card-title{font-family:var(--font-d);font-weight:600;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase;color:var(--white);margin-bottom:1rem}
 .chart-wrap{position:relative;height:240px}
 
-/* AI PANEL */
+/* AI explain */
+.ai-explain-card{background:var(--surf0);border:1px solid rgba(184,255,0,.2);border-radius:16px;padding:1.5rem;display:none}
+.aec-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem}
+.aec-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
+.aec-title{font-family:var(--font-d);font-weight:700;font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--lime)}
+.aec-body{font-size:.88rem;color:var(--white);line-height:1.75}
+.typing-dots{display:flex;gap:4px;align-items:center}
+.typing-dots span{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:blink 1.2s infinite}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
+
+/* floating AI */
 .ai-panel{position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:.75rem}
 .ai-bubble{width:48px;height:48px;border-radius:50%;background:var(--lime);color:#060c1a;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:0 4px 20px rgba(184,255,0,.4);transition:transform .2s,box-shadow .2s}
 .ai-bubble:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(184,255,0,.6)}
 .ai-window{width:340px;background:var(--surf0);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.5)}
-.ai-window.open{display:flex;animation:fadeIn .3s ease}
+.ai-window.open{display:flex;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .ai-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surf1)}
 .ai-title-row{display:flex;align-items:center;gap:.5rem}
 .ai-live-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse-dot 1.8s infinite}
@@ -191,9 +181,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .ai-msg{font-size:.82rem;line-height:1.6;max-width:88%;padding:.55rem .8rem;border-radius:9px}
 .ai-msg.assistant{background:var(--surf1);border:1px solid var(--border);color:var(--white);align-self:flex-start;border-bottom-left-radius:3px}
 .ai-msg.user{background:rgba(184,255,0,.1);border:1px solid rgba(184,255,0,.2);color:var(--white);align-self:flex-end;border-bottom-right-radius:3px}
-.ai-typing{display:flex;gap:4px;align-items:center;padding:.55rem .8rem;background:var(--surf1);border:1px solid var(--border);border-radius:9px;border-bottom-left-radius:3px;align-self:flex-start}
-.ai-typing span{width:5px;height:5px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite}
-.ai-typing span:nth-child(2){animation-delay:.2s}.ai-typing span:nth-child(3){animation-delay:.4s}
+.ai-typing-bubble{display:flex;gap:4px;align-items:center;padding:.55rem .8rem;background:var(--surf1);border:1px solid var(--border);border-radius:9px;border-bottom-left-radius:3px;align-self:flex-start}
+.ai-typing-bubble span{width:5px;height:5px;background:var(--muted);border-radius:50%;animation:blink 1.2s infinite}
+.ai-typing-bubble span:nth-child(2){animation-delay:.2s}
+.ai-typing-bubble span:nth-child(3){animation-delay:.4s}
 .ai-input-row{display:flex;border-top:1px solid var(--border)}
 .ai-input{flex:1;background:transparent;border:none;outline:none;color:var(--white);font-family:var(--font-b);font-size:.82rem;padding:.75rem 1.1rem}
 .ai-input::placeholder{color:var(--muted)}
@@ -204,10 +195,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
   nav{padding:0 1rem}
   .main-grid{grid-template-columns:1fr}
   .input-panel{position:static}
-  .factors-grid{grid-template-columns:1fr 1fr}
+  .prob-grid,.factors-grid{grid-template-columns:1fr 1fr}
   .ai-window{width:calc(100vw - 3rem)}
 }
-@media(max-width:500px){.factors-grid{grid-template-columns:1fr}}
+@media(max-width:500px){.prob-grid,.factors-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -224,48 +215,55 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 </nav>
 
 <div class="page">
-
   <div class="sim-hero">
-    <p class="hero-eyebrow">Strategy Simulator · Live Inference</p>
+    <p class="hero-eyebrow">Strategy Simulator · Live PPO Inference</p>
     <h1 class="hero-title">Run the PPO Agent</h1>
-    <p class="hero-sub">Input any race state and get the PPO agent's real-time pit recommendation — with confidence score, decision factors, and an AI-generated explanation.</p>
+    <p class="hero-sub">Input any race state and get the real model's decision — one of four actions with full probability breakdown and AI strategic analysis.</p>
   </div>
 
   <div class="main-grid">
 
-    <!-- INPUT PANEL -->
+    <!-- ── INPUT PANEL ── -->
     <div class="input-panel">
       <div class="input-panel-header">
         <span class="iph-title">Race State</span>
-        <span class="iph-badge">PPO v1.0</span>
+        <span class="iph-badge">PPO · Discrete(4)</span>
       </div>
       <div class="input-body">
 
+        <div class="api-status">
+          <div class="api-dot checking" id="apiDot"></div>
+          <span id="apiStatusText">Connecting to model…</span>
+        </div>
+
         <div class="field">
           <label>Compound</label>
-          <div class="compound-selector" id="compoundSelector">
-            <button class="compound-btn SOFT" onclick="setCompound('SOFT')">SOFT</button>
+          <div class="compound-selector" id="compoundSel">
+            <button class="compound-btn SOFT"          onclick="setCompound('SOFT')">SOFT</button>
             <button class="compound-btn active MEDIUM" onclick="setCompound('MEDIUM')">MEDIUM</button>
-            <button class="compound-btn HARD" onclick="setCompound('HARD')">HARD</button>
-            <button class="compound-btn INTER" onclick="setCompound('INTER')">INTER</button>
+            <button class="compound-btn HARD"          onclick="setCompound('HARD')">HARD</button>
+            <button class="compound-btn INTER"         onclick="setCompound('INTER')">INTER</button>
           </div>
         </div>
 
         <div class="field">
           <label>Tyre Age — <span id="tyreAgeLabel" style="color:var(--lime)">18 laps</span></label>
-          <input type="range" id="tyreAge" min="1" max="45" value="18" oninput="document.getElementById('tyreAgeLabel').textContent=this.value+' laps';updateWindow()"/>
-          <div class="range-row"><span class="range-val"></span><span class="range-bounds">1 – 45 laps</span></div>
+          <input type="range" id="tyreAge" min="1" max="45" value="18"
+                 oninput="document.getElementById('tyreAgeLabel').textContent=this.value+' laps';refreshWindow()"/>
+          <div class="range-row"><span></span><span class="range-bounds">1 – 45 laps</span></div>
         </div>
 
         <div class="field">
           <label>Current Lap — <span id="lapLabel" style="color:var(--lime)">28</span></label>
-          <input type="range" id="lapNum" min="1" max="78" value="28" oninput="document.getElementById('lapLabel').textContent=this.value;updateWindow()"/>
+          <input type="range" id="lapNum" min="1" max="78" value="28"
+                 oninput="document.getElementById('lapLabel').textContent=this.value;refreshWindow()"/>
           <div class="range-row"><span></span><span class="range-bounds">1 – 78</span></div>
         </div>
 
         <div class="field">
           <label>Total Race Laps — <span id="totalLapsLabel" style="color:var(--lime)">52</span></label>
-          <input type="range" id="totalLaps" min="40" max="78" value="52" oninput="document.getElementById('totalLapsLabel').textContent=this.value;updateWindow()"/>
+          <input type="range" id="totalLaps" min="40" max="78" value="52"
+                 oninput="document.getElementById('totalLapsLabel').textContent=this.value;refreshWindow()"/>
           <div class="range-row"><span></span><span class="range-bounds">40 – 78</span></div>
         </div>
 
@@ -273,32 +271,30 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 
         <div class="field">
           <label>Position — <span id="posLabel" style="color:var(--lime)">P4</span></label>
-          <input type="range" id="posNum" min="1" max="20" value="4" oninput="document.getElementById('posLabel').textContent='P'+this.value"/>
+          <input type="range" id="posNum" min="1" max="20" value="4"
+                 oninput="document.getElementById('posLabel').textContent='P'+this.value"/>
         </div>
 
         <div class="field">
           <label>Gap to Car Ahead — <span id="gapLabel" style="color:var(--lime)">3.0s</span></label>
-          <input type="range" id="gapAhead" min="0" max="30" value="3" step="0.5" oninput="document.getElementById('gapLabel').textContent=parseFloat(this.value).toFixed(1)+'s'"/>
-          <div class="range-row"><span></span><span class="range-bounds">0 – 30s</span></div>
-        </div>
-
-        <div class="field">
-          <label>Gap to Car Behind — <span id="gapBehindLabel" style="color:var(--lime)">5.0s</span></label>
-          <input type="range" id="gapBehind" min="0" max="30" value="5" step="0.5" oninput="document.getElementById('gapBehindLabel').textContent=parseFloat(this.value).toFixed(1)+'s'"/>
+          <input type="range" id="gapAhead" min="0" max="60" value="3" step="0.5"
+                 oninput="document.getElementById('gapLabel').textContent=parseFloat(this.value).toFixed(1)+'s'"/>
+          <div class="range-row"><span></span><span class="range-bounds">0 – 60s</span></div>
         </div>
 
         <div class="field-divider"></div>
 
         <div class="field">
           <label>Track Temperature — <span id="trackTempLabel" style="color:var(--lime)">38°C</span></label>
-          <input type="range" id="trackTemp" min="20" max="60" value="38" oninput="document.getElementById('trackTempLabel').textContent=this.value+'°C'"/>
+          <input type="range" id="trackTemp" min="20" max="60" value="38"
+                 oninput="document.getElementById('trackTempLabel').textContent=this.value+'°C'"/>
         </div>
 
         <div class="field">
-          <label>Rainfall</label>
+          <label>Conditions</label>
           <div class="compound-selector">
-            <button class="rainfall-btn active dry" id="rainfallNo" onclick="setRainfall(false)">DRY</button>
-            <button class="rainfall-btn wet" id="rainfallYes" onclick="setRainfall(true)">RAIN</button>
+            <button class="compound-btn active MEDIUM" id="rainNo"  onclick="setRainfall(false)">DRY</button>
+            <button class="compound-btn SOFT"          id="rainYes" onclick="setRainfall(true)">RAIN</button>
           </div>
         </div>
 
@@ -306,56 +302,57 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Run Agent
         </button>
-        <button class="btn-reset" onclick="resetSim()">↺ Reset State</button>
+        <button class="btn-reset" onclick="resetSim()">↺  Reset</button>
 
       </div>
     </div>
 
-    <!-- OUTPUT PANEL -->
+    <!-- ── OUTPUT PANEL ── -->
     <div class="output-panel">
 
       <div class="out-placeholder" id="placeholder">
         <div class="out-placeholder-icon">🏎</div>
         <div class="out-placeholder-text">Set race state · Press Run Agent</div>
-        <div class="out-placeholder-sub">The PPO agent will return its optimal decision with full factor breakdown</div>
+        <div class="out-placeholder-sub">The PPO model returns one of 4 actions with full probability breakdown</div>
       </div>
 
-      <div class="decision-card" id="decisionCard" style="display:none">
+      <div class="err-card" id="errCard"></div>
+
+      <!-- Decision -->
+      <div class="decision-card" id="decisionCard">
         <div class="dc-header">
-          <div class="dc-action-badge PIT" id="actionBadge">🟢 PIT NOW</div>
+          <div class="dc-action-badge" id="actionBadge">–</div>
           <div class="dc-conf">
-            <div class="dc-conf-label">Confidence</div>
+            <div class="dc-conf-label">Model Confidence</div>
             <div class="dc-conf-val" id="confVal">–</div>
           </div>
         </div>
         <div class="dc-body">
           <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
+          <div class="prob-grid" id="probGrid"></div>
           <div class="factors-grid" id="factorsGrid"></div>
-          <div class="alternatives" id="alternativesBlock"></div>
         </div>
       </div>
 
       <!-- Pit Window -->
       <div class="pit-window-card" id="pitWindowCard">
-        <div class="pwc-title">Optimal Pit Window — Current Stint</div>
-        <div class="window-bar-section">
-          <div class="wb-label">Window: Lap <span id="winStart">–</span> to Lap <span id="winEnd">–</span></div>
-          <div class="window-track">
-            <div class="window-optimal" id="winOptimal"></div>
-            <div class="window-current" id="winCurrent"></div>
-          </div>
-          <div class="window-labels"><span>Lap 1</span><span id="winMid">–</span><span id="winMax">–</span></div>
+        <div class="pwc-title">Optimal Pit Window</div>
+        <div class="wb-label">Window: Lap <span id="winStart">–</span> to Lap <span id="winEnd">–</span></div>
+        <div class="window-track">
+          <div class="window-optimal" id="winOptimal"></div>
+          <div class="window-current" id="winCurrent"></div>
         </div>
-        <div style="font-size:.78rem;color:var(--muted);line-height:1.6" id="winDesc"></div>
+        <div class="window-labels"><span>Lap 1</span><span id="winMid">–</span><span id="winMax">–</span></div>
+        <p class="win-desc" id="winDesc"></p>
       </div>
 
-      <!-- Decision history chart -->
-      <div class="chart-card" id="historyCard" style="display:none">
+      <!-- History chart -->
+      <div class="chart-card" id="historyCard">
         <div class="chart-card-title">Decision History — This Session</div>
-        <div class="chart-wrap"><canvas id="historyChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="histChart"></canvas></div>
       </div>
 
-      <!-- AI Explain -->
+      <!-- AI explain -->
       <div class="ai-explain-card" id="aiExplainCard">
         <div class="aec-header"><div class="aec-dot"></div><span class="aec-title">AI Strategic Analysis</span></div>
         <div class="aec-body" id="aecBody"></div>
@@ -363,9 +360,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 
     </div>
   </div>
-</div><!-- /page -->
+</div>
 
-<!-- AI PANEL -->
+<!-- Floating AI -->
 <div class="ai-panel">
   <div class="ai-window" id="aiWindow">
     <div class="ai-header">
@@ -373,7 +370,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
       <button class="ai-close" id="aiClose">✕</button>
     </div>
     <div class="ai-messages" id="aiMessages">
-      <div class="ai-msg assistant">Use the simulator on the left — I'll explain every decision the agent makes in plain English.</div>
+      <div class="ai-msg assistant">Use the simulator — I'll explain every PPO decision in plain English.</div>
     </div>
     <div class="ai-input-row">
       <input class="ai-input" id="aiInput" type="text" placeholder="Ask about the strategy…" autocomplete="off"/>
@@ -387,232 +384,365 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
   </button>
 </div>
 
-<script src="api.js"></script>
 <script>
+/* ─────────────────────────────────────────────────────────────
+   api.js has already set:
+     window.STRATORACE_API_BASE  — '' on Vercel, full URL elsewhere
+     callClaude(messages, system) — proxies through /api/chat
+   ───────────────────────────────────────────────────────────── */
 
-document.addEventListener('mousemove',e=>{document.documentElement.style.setProperty('--cx',e.clientX+'px');document.documentElement.style.setProperty('--cy',e.clientY+'px')});
+document.addEventListener('mousemove', e => {
+  document.documentElement.style.setProperty('--cx', e.clientX + 'px');
+  document.documentElement.style.setProperty('--cy', e.clientY + 'px');
+});
 
-Chart.defaults.color='#7a9ab5';Chart.defaults.borderColor='#1e3450';Chart.defaults.font.family="'DM Mono',monospace";Chart.defaults.font.size=11;
+Chart.defaults.color = '#7a9ab5';
+Chart.defaults.borderColor = '#1e3450';
+Chart.defaults.font.family = "'DM Mono',monospace";
+Chart.defaults.font.size = 11;
 
-let compound='MEDIUM', rainfall=false;
-let historyData = [];
-let historyChart = null;
+/* ── State ── */
+var compound    = 'MEDIUM';
+var rainfall    = false;
+var historyData = [];
+var histChart   = null;
 
-function setCompound(c){
-  compound=c;
-  document.querySelectorAll('.compound-btn').forEach(b=>{
+/* ── Health check ── */
+(async function checkApi() {
+  var dot  = document.getElementById('apiDot');
+  var text = document.getElementById('apiStatusText');
+  try {
+    var r = await fetch(window.STRATORACE_API_BASE + '/health', { signal: AbortSignal.timeout(6000) });
+    if (r.ok) {
+      var d = await r.json();
+      dot.className = 'api-dot ok';
+      text.textContent = d.model_loaded ? 'PPO model connected' : 'Server up — model not loaded';
+      text.style.color = d.model_loaded ? 'var(--lime)' : 'var(--yellow)';
+    } else { throw new Error(); }
+  } catch {
+    dot.className = 'api-dot err';
+    text.textContent = 'Model offline — check Railway';
+    text.style.color = 'var(--red)';
+  }
+})();
+
+/* ── Input helpers ── */
+function setCompound(c) {
+  compound = c;
+  document.querySelectorAll('#compoundSel .compound-btn').forEach(function(b) {
     b.classList.remove('active');
-    if(b.classList.contains(c)){b.classList.add('active')}
+    if (b.classList.contains(c)) b.classList.add('active');
   });
-  updateWindow();
+  refreshWindow();
 }
 
-function setRainfall(r){
+function setRainfall(r) {
   rainfall = r;
-  document.getElementById('rainfallNo').classList.toggle('active', !r);
-  document.getElementById('rainfallYes').classList.toggle('active', r);
-  updateWindow();
+  document.getElementById('rainNo').classList.toggle('active', !r);
+  document.getElementById('rainYes').classList.toggle('active', r);
 }
 
-function getState(){
+function getState() {
   return {
-    compound,
-    tyreAge: +document.getElementById('tyreAge').value,
-    lap: +document.getElementById('lapNum').value,
+    compound:  compound,
+    tyreAge:   +document.getElementById('tyreAge').value,
+    lap:       +document.getElementById('lapNum').value,
     totalLaps: +document.getElementById('totalLaps').value,
-    position: +document.getElementById('posNum').value,
-    gapAhead: +document.getElementById('gapAhead').value,
-    gapBehind: +document.getElementById('gapBehind').value,
+    position:  +document.getElementById('posNum').value,
+    gapAhead:  +document.getElementById('gapAhead').value,
     trackTemp: +document.getElementById('trackTemp').value,
-    rainfall
+    rainfall:  rainfall,
   };
 }
 
-/* computeDecision is now handled by the backend — see runSimulation() */
+/* ── Pit window (local visual only — no model call) ── */
+var OPTIMAL = { SOFT: 14, MEDIUM: 22, HARD: 32, INTER: 18 };
+function refreshWindow() {
+  var s     = getState();
+  var opt   = OPTIMAL[compound] || 22;
+  var ws    = Math.max(1, opt - 4);
+  var we    = Math.min(s.totalLaps, opt + 8);
+  var total = s.totalLaps;
 
-function updateWindow(){
-  const s=getState();
-  // lightweight local preview for window bar (full calc happens via API on Run)
-  const optimalOut = s.compound==='SOFT'?12:s.compound==='MEDIUM'?20:s.compound==='INTER'?15:28;
-  const d = { windowStart: Math.max(1, optimalOut-4), windowEnd: Math.min(s.totalLaps, optimalOut+6) };
-  const total=s.totalLaps;
-  const winStart=Math.max(1,d.windowStart);
-  const winEnd=Math.min(total,d.windowEnd);
-  const pct1=(winStart/total*100).toFixed(1);
-  const pctWidth=((winEnd-winStart)/total*100).toFixed(1);
-  const pctCurrent=(s.lap/total*100).toFixed(1);
-  document.getElementById('winOptimal').style.left=pct1+'%';
-  document.getElementById('winOptimal').style.width=pctWidth+'%';
-  document.getElementById('winCurrent').style.left=pctCurrent+'%';
-  document.getElementById('winStart').textContent=winStart;
-  document.getElementById('winEnd').textContent=winEnd;
-  document.getElementById('winMid').textContent='Lap '+Math.round(total/2);
-  document.getElementById('winMax').textContent='Lap '+total;
+  document.getElementById('winOptimal').style.left  = (ws / total * 100).toFixed(1) + '%';
+  document.getElementById('winOptimal').style.width = ((we - ws) / total * 100).toFixed(1) + '%';
+  document.getElementById('winCurrent').style.left  = (s.lap / total * 100).toFixed(1) + '%';
+  document.getElementById('winStart').textContent   = ws;
+  document.getElementById('winEnd').textContent     = we;
+  document.getElementById('winMid').textContent     = 'Lap ' + Math.round(total / 2);
+  document.getElementById('winMax').textContent     = 'Lap ' + total;
+
+  var inW  = s.lap >= ws && s.lap <= we;
+  var past = s.lap > we;
+  document.getElementById('winDesc').textContent = past
+    ? 'Lap ' + s.lap + ' is past the optimal ' + compound + ' window. Agent will likely recommend pitting immediately.'
+    : inW
+    ? 'Lap ' + s.lap + ' is inside the optimal ' + compound + ' pit window (Lap ' + ws + '–' + we + ').'
+    : 'Current lap ' + s.lap + ' is before the pit window. Agent will likely recommend staying out.';
 }
 
-function resetSim(){
-  document.getElementById('placeholder').style.display='flex';
-  document.getElementById('decisionCard').style.display='none';
-  document.getElementById('historyCard').style.display='none';
-  document.getElementById('aiExplainCard').classList.remove('open');
-  historyData=[];
-  if(historyChart){historyChart.destroy();historyChart=null}
-}
+/* ── Action metadata ── */
+var ACTION = {
+  0: { icon: '🔴', label: 'EMERGENCY PIT', badge: 'badge-0', fill: 'fill-0', conf: 'conf-c0', pv: 'pv-0', pf: 'pf-0', chosen: 'is-chosen is-chosen-0' },
+  1: { icon: '🟢', label: 'PIT NOW',       badge: 'badge-1', fill: 'fill-1', conf: 'conf-c1', pv: 'pv-1', pf: 'pf-1', chosen: 'is-chosen' },
+  2: { icon: '🟡', label: 'MONITOR',       badge: 'badge-2', fill: 'fill-2', conf: 'conf-c2', pv: 'pv-2', pf: 'pf-2', chosen: 'is-chosen is-chosen-2' },
+  3: { icon: '⚪', label: 'STAY OUT',      badge: 'badge-3', fill: 'fill-3', conf: 'conf-c3', pv: 'pv-3', pf: 'pf-3', chosen: 'is-chosen is-chosen-3' },
+};
+var PROB_KEYS   = ['EMERGENCY_PIT', 'PIT_NOW', 'MONITOR', 'STAY_OUT'];
+var PROB_LABELS = ['Emergency Pit', 'Pit Now', 'Monitor', 'Stay Out'];
+var HIST_COLOURS = ['#E8002D', '#B8FF00', '#FFD600', '#FF6C00'];
 
-async function runSimulation(){
-  const btn=document.getElementById('runBtn');
-  btn.classList.add('loading');
-  btn.innerHTML='<span style="font-family:var(--font-m);font-size:.78rem">Processing…</span>';
+/* ── Run ── */
+async function runSimulation() {
+  var btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="font-family:var(--font-m);font-size:.78rem;letter-spacing:.06em">Querying model…</span>';
+  document.getElementById('errCard').style.display = 'none';
 
-  const state=getState();
-  let result;
+  var state = getState();
+
   try {
-    const r = await fetch(window.STRATORACE_API_BASE + '/api/simulate', {
-      method: 'POST',
+    var resp = await fetch(window.STRATORACE_API_BASE + '/api/predict', {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body:    JSON.stringify(state),
     });
-    if (!r.ok) throw new Error('API error');
-    result = await r.json();
-  } catch(e) {
-    btn.classList.remove('loading');
-    btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run Agent';
-    alert('Backend unreachable. Check API_BASE in api.js.');
-    return;
+
+    if (!resp.ok) {
+      var err = await resp.json().catch(function() { return { detail: 'Server error ' + resp.status }; });
+      throw new Error(err.detail || 'Server error ' + resp.status);
+    }
+
+    var result = await resp.json();
+    render(state, result);
+
+  } catch (e) {
+    showErr('Model API error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run Agent';
+  }
+}
+
+function showErr(msg) {
+  var c = document.getElementById('errCard');
+  c.textContent = '⚠  ' + msg;
+  c.style.display = 'block';
+  document.getElementById('placeholder').style.display = 'none';
+}
+
+function render(state, result) {
+  document.getElementById('placeholder').style.display = 'none';
+
+  var a    = result.action;
+  var meta = ACTION[a];
+  var conf = result.confidence;
+  var prob = result.probs;
+
+  /* decision card */
+  document.getElementById('decisionCard').style.display = 'block';
+
+  var badge = document.getElementById('actionBadge');
+  badge.textContent = meta.icon + '  ' + meta.label;
+  badge.className   = 'dc-action-badge ' + meta.badge;
+
+  var cv = document.getElementById('confVal');
+  cv.textContent = conf + '%';
+  cv.className   = 'dc-conf-val ' + meta.conf;
+
+  var fill = document.getElementById('confFill');
+  fill.className   = 'conf-fill ' + meta.fill;
+  fill.style.width = '0%';
+  setTimeout(function() { fill.style.width = conf + '%'; }, 80);
+
+  /* 4-action prob grid */
+  var pg = document.getElementById('probGrid');
+  pg.innerHTML = PROB_KEYS.map(function(key, i) {
+    var pct    = prob[key] || 0;
+    var chosen = (i === a) ? meta.chosen : '';
+    return '<div class="prob-row ' + chosen + '">' +
+      '<div class="prob-label">' + PROB_LABELS[i] + (i === a ? ' ✓' : '') + '</div>' +
+      '<div class="prob-val ' + ACTION[i].pv + '">' + pct + '%</div>' +
+      '<div class="prob-track"><div class="prob-fill ' + ACTION[i].pf + '" style="width:0%" data-w="' + pct + '%"></div></div>' +
+      '</div>';
+  }).join('');
+  setTimeout(function() {
+    document.querySelectorAll('.prob-fill').forEach(function(el) { el.style.width = el.dataset.w; });
+  }, 120);
+
+  /* factors */
+  var lapsLeft = state.totalLaps - state.lap;
+  var ageCls   = state.tyreAge > 30 ? 'red' : state.tyreAge > 18 ? 'orange' : 'lime';
+  var lapsCls  = lapsLeft < 12 ? 'orange' : 'white';
+  document.getElementById('factorsGrid').innerHTML =
+    factor('Tyre Age', state.tyreAge + ' laps', ageCls,
+      state.tyreAge > 30 ? 'Critically degraded' : state.tyreAge > 18 ? 'Moderate wear' : 'Fresh') +
+    factor('Laps Remaining', lapsLeft, lapsCls,
+      lapsLeft < 12 ? 'Late race — window closing' : 'Strategy window open') +
+    factor('Gap Ahead', state.gapAhead + 's', 'white',
+      state.gapAhead > 25 ? 'Free air — undercut viable' : state.gapAhead < 2 ? 'DRS range' : 'Tracking closely') +
+    factor('Rec. Compound', result.recCompound, 'lime', 'Next tyre suggestion') +
+    factor('Compound', state.compound, 'white', 'Current tyre') +
+    factor('Conditions', state.rainfall ? 'RAIN 🌧' : 'DRY ☀', state.rainfall ? 'red' : 'lime', 'Track: ' + state.trackTemp + '°C');
+
+  /* pit window */
+  refreshWindow();
+  if (result.pitWindow) {
+    document.getElementById('winStart').textContent = result.pitWindow.start;
+    document.getElementById('winEnd').textContent   = result.pitWindow.end;
   }
 
-  // show decision card
-  document.getElementById('placeholder').style.display='none';
-  document.getElementById('decisionCard').style.display='block';
-  document.getElementById('pitWindowCard').classList.add('open');
-  document.getElementById('historyCard').style.display='block';
+  /* history */
+  historyData.push({ a: a, conf: conf, lap: state.lap, age: state.tyreAge });
+  renderHistory();
 
-  // update action badge
-  const badge=document.getElementById('actionBadge');
-  badge.textContent=result.pit?'🟢  PIT NOW':'🟡  STAY OUT';
-  badge.className=`dc-action-badge ${result.pit?'PIT':'STAY'}`;
-
-  // confidence
-  document.getElementById('confVal').textContent=result.confidence+'%';
-  setTimeout(()=>{document.getElementById('confFill').style.width=result.confidence+'%'},100);
-
-  // factors
-  const fg=document.getElementById('factorsGrid');
-  const degradeLabel = result.degScore > 3 ? 'HIGH' : result.degScore > 1.5 ? 'MODERATE' : 'LOW';
-  fg.innerHTML=`
-    <div class="factor">
-      <div class="factor-label">Tyre Deg Score</div>
-      <div class="factor-val ${result.degScore>3?'red':result.degScore>1.5?'orange':'lime'}">${result.degScore.toFixed(2)}</div>
-      <div class="factor-sub">${degradeLabel} degradation</div>
-    </div>
-    <div class="factor">
-      <div class="factor-label">Urgency Index</div>
-      <div class="factor-val ${result.urgency>3.5?'red':result.urgency>2?'orange':'lime'}">${result.urgency.toFixed(2)}</div>
-      <div class="factor-sub">Threshold 3.50</div>
-    </div>
-    <div class="factor">
-      <div class="factor-label">Laps Remaining</div>
-      <div class="factor-val ${result.lapsLeft<12?'orange':'white'}">${result.lapsLeft}</div>
-      <div class="factor-sub">${result.lapsLeft<12?'Late race urgency':'Within strategy window'}</div>
-    </div>
-    <div class="factor">
-      <div class="factor-label">Gap Ahead</div>
-      <div class="factor-val white">${state.gapAhead}s</div>
-      <div class="factor-sub">${state.gapAhead>8?'Pit window opportunity':'Tracking closely'}</div>
-    </div>
-    <div class="factor">
-      <div class="factor-label">Rec. Compound</div>
-      <div class="factor-val lime">${result.recCompound}</div>
-      <div class="factor-sub">Optimal next tyre</div>
-    </div>
-    <div class="factor">
-      <div class="factor-label">Cliff Bonus</div>
-      <div class="factor-val ${result.cliffBonus>0.5?'red':'muted'}">${result.cliffBonus.toFixed(2)}</div>
-      <div class="factor-sub">${result.cliffBonus>0.5?'Past optimal window':'Within optimal age'}</div>
-    </div>
-  `;
-
-  // alternatives
-  const altConf = 100 - result.confidence;
-  const altLabel = result.pit ? 'STAY OUT' : 'PIT NOW';
-  document.getElementById('alternativesBlock').innerHTML=`
-    <div class="alt-title">All Options</div>
-    <div class="alt-row">
-      <div class="alt-action">${result.pit?'PIT NOW':'STAY OUT'}</div>
-      <div class="alt-bars"><div class="alt-bar-track"><div class="alt-bar-fill" style="width:${result.confidence}%;background:var(--lime)"></div></div></div>
-      <div class="alt-conf-val">${result.confidence}%</div>
-    </div>
-    <div class="alt-row">
-      <div class="alt-action">${altLabel}</div>
-      <div class="alt-bars"><div class="alt-bar-track"><div class="alt-bar-fill" style="width:${altConf}%;background:var(--orange)"></div></div></div>
-      <div class="alt-conf-val">${altConf}%</div>
-    </div>
-  `;
-
-  // pit window
-  updateWindow();
-
-  // history
-  historyData.push({decision:result.pit?'PIT':'STAY',conf:result.confidence,lap:state.lap,age:state.tyreAge});
-  updateHistoryChart();
-
-  // reset button
-  btn.classList.remove('loading');
-  btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run Agent';
-
-  // AI explain
-  await getAiExplanation(state, result);
+  /* AI */
+  aiExplain(state, result);
 }
 
-function updateHistoryChart(){
-  const canvas=document.getElementById('historyChart');
-  if(historyChart){historyChart.destroy()}
-  const labels=historyData.map((_,i)=>`Run ${i+1}`);
-  const confs=historyData.map(d=>d.conf);
-  const colors=historyData.map(d=>d.decision==='PIT'?'rgba(184,255,0,0.55)':'rgba(255,108,0,0.5)');
-  historyChart=new Chart(canvas,{
-    type:'bar',
-    data:{labels,datasets:[{label:'Confidence',data:confs,backgroundColor:colors,borderColor:historyData.map(d=>d.decision==='PIT'?'#B8FF00':'#FF6C00'),borderWidth:1,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0a1628',borderColor:'#1e3450',borderWidth:1,callbacks:{label:c=>`${historyData[c.dataIndex].decision} · ${c.raw}% · Lap ${historyData[c.dataIndex].lap} · Age ${historyData[c.dataIndex].age}`}}},scales:{x:{grid:{color:'#1e3450'}},y:{grid:{color:'#1e3450'},min:0,max:100,title:{display:true,text:'Confidence %',color:'#7a9ab5'}}}}
+function factor(label, val, cls, sub) {
+  return '<div class="factor">' +
+    '<div class="factor-label">' + label + '</div>' +
+    '<div class="factor-val ' + cls + '">' + val + '</div>' +
+    '<div class="factor-sub">' + sub + '</div>' +
+    '</div>';
+}
+
+function renderHistory() {
+  var card = document.getElementById('historyCard');
+  card.style.display = 'block';
+  if (histChart) histChart.destroy();
+  histChart = new Chart(document.getElementById('histChart'), {
+    type: 'bar',
+    data: {
+      labels: historyData.map(function(_, i) { return 'Run ' + (i + 1); }),
+      datasets: [{
+        label: 'Confidence',
+        data:            historyData.map(function(d) { return d.conf; }),
+        backgroundColor: historyData.map(function(d) { return HIST_COLOURS[d.a] + '88'; }),
+        borderColor:     historyData.map(function(d) { return HIST_COLOURS[d.a]; }),
+        borderWidth: 1, borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0a1628', borderColor: '#1e3450', borderWidth: 1,
+          callbacks: { label: function(c) {
+            var d = historyData[c.dataIndex];
+            return ACTION[d.a].label + ' · ' + c.raw + '% · Lap ' + d.lap + ' · Age ' + d.age;
+          }},
+        },
+      },
+      scales: {
+        x: { grid: { color: '#1e3450' } },
+        y: { grid: { color: '#1e3450' }, min: 0, max: 100,
+             title: { display: true, text: 'Confidence %', color: '#7a9ab5' } },
+      },
+    },
   });
 }
 
-const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data. Answers should be concise (3 sentences max). Only answer about StratoRace, F1 strategy, or simulator output.`;
-const history=[];
-
-async function callClaude(messages){
-  const r=await fetch(window.STRATORACE_API_BASE+'/api/chat',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({messages,system:SYSTEM})
-  });
-  if(!r.ok) throw new Error('API error '+r.status);
-  const data=await r.json();
-  return data.text||'No response.';
+function resetSim() {
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('decisionCard').style.display = 'none';
+  document.getElementById('historyCard').style.display = 'none';
+  document.getElementById('aiExplainCard').style.display = 'none';
+  document.getElementById('errCard').style.display = 'none';
+  historyData = [];
+  if (histChart) { histChart.destroy(); histChart = null; }
 }
 
-async function getAiExplanation(state,result){
-  const card=document.getElementById('aiExplainCard');
-  const body=document.getElementById('aecBody');
-  card.classList.add('open');
-  body.innerHTML='<div class="aec-typing"><span></span><span></span><span></span></div>';
-  const prompt=`The PPO agent was given this F1 race state: Compound=${state.compound}, TyreAge=${state.tyreAge}, Lap=${state.lap}/${state.totalLaps}, Position=P${state.position}, GapAhead=${state.gapAhead}s, GapBehind=${state.gapBehind}s, TrackTemp=${state.trackTemp}°C, Rainfall=${state.rainfall}. The agent decided: ${result.pit?'PIT NOW':'STAY OUT'} with ${result.confidence}% confidence. Urgency index: ${result.urgency.toFixed(2)}. In 2-3 sentences, explain why this is the correct strategic call in plain English, referring to the specific numbers.`;
-  try{const reply=await callClaude([{role:'user',content:prompt}]);body.textContent=reply}
-  catch{body.textContent='AI explanation unavailable — check API connection.'}
+/* ── AI explanation — uses callClaude() from api.js ── */
+var SIM_SYSTEM = 'You are the StratoRace AI assistant. StratoRace is an F1 pit strategy system using a real PPO reinforcement learning model (Stable-Baselines3, trained on 2022–2024 F1 data, ~70 races). The model has 4 actions: 0=EMERGENCY PIT, 1=PIT NOW, 2=MONITOR, 3=STAY OUT. Answer in 2-3 sentences maximum. Only discuss StratoRace, F1 strategy, or the model output.';
+
+async function aiExplain(state, result) {
+  var card = document.getElementById('aiExplainCard');
+  var body = document.getElementById('aecBody');
+  card.style.display = 'block';
+  body.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+
+  var lapsLeft = state.totalLaps - state.lap;
+  var prompt = 'PPO model input — Compound: ' + state.compound +
+    ', Tyre Age: ' + state.tyreAge + ' laps, Lap: ' + state.lap + '/' + state.totalLaps +
+    ' (' + lapsLeft + ' remaining), Position: P' + state.position +
+    ', Gap Ahead: ' + state.gapAhead + 's, Track: ' + state.trackTemp + '°C, Rain: ' + state.rainfall + '.' +
+    ' Model decision: ' + result.action + ' (' + result.label + ') with ' + result.confidence + '% confidence.' +
+    ' Full probs — Emergency Pit: ' + result.probs.EMERGENCY_PIT +
+    '%, Pit Now: ' + result.probs.PIT_NOW +
+    '%, Monitor: ' + result.probs.MONITOR +
+    '%, Stay Out: ' + result.probs.STAY_OUT + '%.' +
+    ' In 2-3 sentences, explain why this is the correct strategic call, referencing the specific numbers.';
+
+  try {
+    var reply = await callClaude([{ role: 'user', content: prompt }], SIM_SYSTEM);
+    body.textContent = reply;
+  } catch {
+    body.textContent = 'AI explanation unavailable.';
+  }
 }
 
-/* floating AI */
-const aiBubble=document.getElementById('aiBubble'),aiWindow=document.getElementById('aiWindow'),aiClose=document.getElementById('aiClose'),aiInput=document.getElementById('aiInput'),aiSend=document.getElementById('aiSend'),aiMessages=document.getElementById('aiMessages');
-aiBubble.addEventListener('click',()=>{aiWindow.classList.toggle('open');if(aiWindow.classList.contains('open'))aiInput.focus()});
-aiClose.addEventListener('click',()=>aiWindow.classList.remove('open'));
-function addMsg(text,role){const d=document.createElement('div');d.className=`ai-msg ${role}`;d.textContent=text;aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight}
-function showTyping(){const d=document.createElement('div');d.className='ai-typing';d.innerHTML='<span></span><span></span><span></span>';aiMessages.appendChild(d);aiMessages.scrollTop=aiMessages.scrollHeight;return d}
-async function sendMsg(){const text=aiInput.value.trim();if(!text)return;aiInput.value='';aiSend.disabled=true;addMsg(text,'user');history.push({role:'user',content:text});const t=showTyping();try{const reply=await callClaude(history);t.remove();history.push({role:'assistant',content:reply});addMsg(reply,'assistant')}catch{t.remove();addMsg('Connection error.','assistant')}aiSend.disabled=false;aiInput.focus()}
-aiSend.addEventListener('click',sendMsg);aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+/* ── Floating AI chat — uses callClaude() from api.js ── */
+var CHAT_SYSTEM = 'You are the StratoRace AI assistant. StratoRace uses a real PPO RL model for F1 pit strategy. Answer concisely (2-4 sentences). Only discuss StratoRace, F1 strategy, or model decisions.';
+var chatHistory = [];
 
-// init window display
-updateWindow();
-document.getElementById('pitWindowCard').classList.add('open');
+var aiBubble   = document.getElementById('aiBubble');
+var aiWindow   = document.getElementById('aiWindow');
+var aiClose    = document.getElementById('aiClose');
+var aiInput    = document.getElementById('aiInput');
+var aiSend     = document.getElementById('aiSend');
+var aiMessages = document.getElementById('aiMessages');
+
+aiBubble.addEventListener('click', function() {
+  aiWindow.classList.toggle('open');
+  if (aiWindow.classList.contains('open')) aiInput.focus();
+});
+aiClose.addEventListener('click', function() { aiWindow.classList.remove('open'); });
+
+function addMsg(text, role) {
+  var d = document.createElement('div');
+  d.className = 'ai-msg ' + role;
+  d.textContent = text;
+  aiMessages.appendChild(d);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+}
+function showTypingBubble() {
+  var d = document.createElement('div');
+  d.className = 'ai-typing-bubble';
+  d.innerHTML = '<span></span><span></span><span></span>';
+  aiMessages.appendChild(d);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+  return d;
+}
+async function sendMsg() {
+  var text = aiInput.value.trim();
+  if (!text) return;
+  aiInput.value = '';
+  aiSend.disabled = true;
+  addMsg(text, 'user');
+  chatHistory.push({ role: 'user', content: text });
+  var t = showTypingBubble();
+  try {
+    var reply = await callClaude(chatHistory, CHAT_SYSTEM);
+    t.remove();
+    chatHistory.push({ role: 'assistant', content: reply });
+    addMsg(reply, 'assistant');
+  } catch {
+    t.remove();
+    addMsg('Connection error.', 'assistant');
+  }
+  aiSend.disabled = false;
+  aiInput.focus();
+}
+aiSend.addEventListener('click', sendMsg);
+aiInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+
+/* init */
+refreshWindow();
 </script>
 </body>
 </html>
