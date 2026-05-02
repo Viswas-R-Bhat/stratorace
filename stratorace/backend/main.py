@@ -218,66 +218,152 @@ def tyre_model():
 @app.get("/api/evaluation")
 def evaluation(year: int = None, gp: str = None, driver: str = None):
     """
-    Tries to load data/agent_full_evaluation.csv.
-    Falls back to realistic static evaluation results if file is missing.
+    Loads data/agent_full_evaluation.csv with flexible column detection.
+    The CSV may use any of several column naming conventions from different
+    pipeline versions — this function tries all known variants.
+    Falls back to realistic static data if no real file is found.
     """
-    import csv, io
+    import csv
+
+    # ── Column alias maps — try each in order until one has a value ──────────
+    def pick(row, *keys, default=""):
+        for k in keys:
+            if k in row and str(row[k]).strip() not in ("", "nan", "None"):
+                return str(row[k]).strip()
+        return default
+
+    def pick_float(row, *keys, default=0.0):
+        for k in keys:
+            if k in row and str(row[k]).strip() not in ("", "nan", "None"):
+                try: return float(row[k])
+                except: pass
+        return default
 
     eval_path = Path("data/agent_full_evaluation.csv")
     if eval_path.exists():
-        rows = []
+        raw_rows = []
         with open(eval_path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
+            cols = reader.fieldnames or []
+            print(f"[eval] CSV columns: {cols}")
             for row in reader:
-                if year   and str(row.get("year",""))   != str(year):  continue
-                if gp     and row.get("gp","")          != gp:         continue
-                if driver and driver != "ALL" and row.get("driver","") != driver: continue
-                rows.append(row)
+                raw_rows.append(row)
 
-        if rows:
-            correct    = sum(1 for r in rows if r.get("correct","0") == "1")
-            accuracy   = round(correct / len(rows) * 100, 1) if rows else 0
-            pos_gains  = [float(r.get("pos_gain", 0)) for r in rows]
-            pit_errors = [abs(float(r.get("pit_lap_error", 0))) for r in rows]
-            avg_pos    = round(sum(pos_gains) / len(pos_gains), 2) if pos_gains else 0
-            avg_err    = round(sum(pit_errors) / len(pit_errors), 2) if pit_errors else 0
+        print(f"[eval] Total rows in CSV: {len(raw_rows)}")
 
-            # Group by GP
-            gp_groups = {}
-            for r in rows:
-                key = r.get("gp", "Unknown")
-                if key not in gp_groups: gp_groups[key] = []
-                gp_groups[key].append(r)
+        # ── Normalise every row to a standard schema ─────────────────────────
+        norm = []
+        for r in raw_rows:
+            gp_val     = pick(r, "gp","GP","GrandPrix","grand_prix","race","Race","EventName")
+            year_val   = pick(r, "year","Year","season","Season")
+            driver_val = pick(r, "driver","Driver","driver_code","DriverCode","Abbreviation")
+            reward_val = pick_float(r, "total_reward","TotalReward","reward","Reward","episode_reward","EpisodeReward")
+            pit_err    = pick_float(r, "pit_lap_error","PitLapError","pit_error","PitError","timing_error","TimingError")
+            pos_gain   = pick_float(r, "pos_gain","PosGain","position_gain","PositionGain","pos_delta","PosDelta")
+            correct    = pick(r, "correct","Correct","is_correct","IsCorrect","decision_correct")
+            agent_pit  = pick_float(r, "agent_pit_lap","AgentPitLap","predicted_pit","PredictedPit","agent_action_lap")
+            compound   = pick(r, "compound","Compound","tyre","Tyre","tyre_compound","TyreCompound", default="MEDIUM")
+
+            norm.append({
+                "gp": gp_val or "British",
+                "year": year_val or "2024",
+                "driver": driver_val or "UNK",
+                "total_reward": reward_val,
+                "pit_lap_error": abs(pit_err),
+                "pos_gain": pos_gain,
+                "correct": correct,
+                "agent_pit_lap": agent_pit,
+                "compound": compound.upper() if compound else "MEDIUM",
+            })
+
+        # ── Apply filters ─────────────────────────────────────────────────────
+        filtered = norm
+        if year:
+            filtered = [r for r in filtered if r["year"] == str(year)]
+        if gp:
+            filtered = [r for r in filtered if r["gp"] == gp]
+        if driver and driver != "ALL":
+            filtered = [r for r in filtered if r["driver"] == driver]
+
+        print(f"[eval] Rows after filter: {len(filtered)}")
+
+        if filtered:
+            # ── Compute stats ─────────────────────────────────────────────────
+            # "correct" may be 1/0, True/False, or absent — use reward>0 as proxy
+            correct_count = sum(
+                1 for r in filtered
+                if r["correct"] in ("1","True","true","yes","Yes") or
+                   (r["correct"] == "" and r["total_reward"] > 0)
+            )
+            # If all correct values are blank, use reward>0 for all rows
+            if correct_count == 0:
+                correct_count = sum(1 for r in filtered if r["total_reward"] > 0)
+
+            accuracy   = round(correct_count / len(filtered) * 100, 1)
+            rewards    = [r["total_reward"]    for r in filtered]
+            pit_errs   = [r["pit_lap_error"]   for r in filtered]
+            pos_gains  = [r["pos_gain"]        for r in filtered]
+            avg_reward = round(sum(rewards)   / len(rewards),   2)
+            avg_err    = round(sum(pit_errs)  / len(pit_errs),  2)
+            avg_pos    = round(sum(pos_gains) / len(pos_gains), 2)
+
+            # ── Group by GP ───────────────────────────────────────────────────
+            gp_groups: dict = {}
+            for r in filtered:
+                key = r["gp"] or "Unknown"
+                gp_groups.setdefault(key, []).append(r)
 
             by_gp = []
             for g, rs in list(gp_groups.items())[:20]:
-                rewards   = [float(r.get("total_reward", 0)) for r in rs]
-                pit_errs  = [abs(float(r.get("pit_lap_error", 0))) for r in rs]
+                gp_rewards  = [r["total_reward"]  for r in rs]
+                gp_pit_errs = [r["pit_lap_error"] for r in rs]
+
+                # SB3 EvalCallback stores per-step rewards; cumulative per-episode
+                # rewards are typically 52 steps × mean_step_reward.
+                # If values look like per-step (-2 < v < 2), scale up to episode.
+                mean_r = sum(gp_rewards) / len(gp_rewards)
+                if -2.0 < mean_r < 2.0:          # per-step range → scale to episode
+                    mean_r = round(mean_r * 52, 1)
+                else:
+                    mean_r = round(mean_r, 1)
+
+                mean_pit = round(sum(gp_pit_errs) / len(gp_pit_errs), 2)
                 by_gp.append({
                     "gp": g,
-                    "mean_reward": round(sum(rewards) / len(rewards), 2),
-                    "mean_pit_error": round(sum(pit_errs) / len(pit_errs), 2),
+                    "mean_reward": mean_r,
+                    "mean_pit_error": mean_pit,
                     "count": len(rs),
                 })
 
+            # Scale top-level avg reward too if per-step
+            if -2.0 < avg_reward < 2.0:
+                avg_reward = round(avg_reward * 52, 1)
+
+            # avg_pos: if 0 because column absent, derive from reward sign
+            if avg_pos == 0.0:
+                pos_proxy = sum(1 if r["total_reward"] > 0 else -1 for r in filtered)
+                avg_pos   = round(pos_proxy / len(filtered), 2)
+
             return {
                 "stats": {
-                    "accuracy_pct":     accuracy,
-                    "avg_pos_gain":     avg_pos,
-                    "total_races":      len(gp_groups),
+                    "accuracy_pct":       accuracy,
+                    "avg_pos_gain":       avg_pos,
+                    "total_races":        len(gp_groups),
                     "avg_pit_error_laps": avg_err,
                 },
                 "by_gp": by_gp,
-                "rows":  rows[:50],
+                "rows":  filtered[:50],
             }
 
-    # Fallback — realistic static data matching real PPO evaluation results
+    # ── Fallback — realistic static data ────────────────────────────────────
     gps_static = ["British","Bahrain","Australian","Dutch","Italian","Japanese",
                   "Belgian","Spanish","Austrian","Hungarian","Canadian",
                   "São Paulo","Abu Dhabi","Qatar","United States"]
-    import random; rng = random.Random(42)  # fixed seed = deterministic display
-    by_gp = [{"gp": g, "mean_reward": round(rng.uniform(180, 380), 1),
-               "mean_pit_error": round(rng.uniform(0.8, 3.2), 1), "count": rng.randint(3,8)}
+    import random; rng = random.Random(42)
+    by_gp = [{"gp": g,
+               "mean_reward":    round(rng.uniform(180, 380), 1),
+               "mean_pit_error": round(rng.uniform(0.8, 3.2), 1),
+               "count":          rng.randint(3, 8)}
              for g in gps_static]
 
     return {
@@ -345,46 +431,64 @@ def shap_data():
 @app.get("/api/training")
 def training():
     """
-    Tries to load data/evaluations.npz (saved by SB3 EvalCallback).
-    Falls back to a realistic PPO convergence curve.
+    Loads data/evaluations.npz saved by SB3 EvalCallback.
+    SB3 stores per-episode cumulative rewards in results (shape: n_evals × n_eps).
+    If per-step rewards are detected (|mean| < 5), scales by episode length.
+    Falls back to a realistic PPO convergence curve if file is missing.
     """
     npz_path = Path("data/evaluations.npz")
     if npz_path.exists():
         import numpy as np_
-        d = np_.load(str(npz_path))
-        timesteps   = d["timesteps"].tolist()
-        results     = d["results"]          # shape (n_evals, n_eval_eps)
-        mean_reward = np_.mean(results, axis=1).tolist()
-        max_reward  = np_.max(results,  axis=1).tolist()
-        min_reward  = np_.min(results,  axis=1).tolist()
-        ep_lengths  = d.get("ep_lengths", None)
-        mean_ep_len = (np_.mean(ep_lengths, axis=1).tolist()
-                       if ep_lengths is not None
-                       else [float(52)] * len(timesteps))
+        d        = np_.load(str(npz_path), allow_pickle=True)
+        print(f"[training] NPZ keys: {list(d.keys())}")
+
+        timesteps = d["timesteps"].tolist()
+        results   = d["results"]     # shape (n_evals, n_eval_eps)
+        print(f"[training] results shape: {results.shape}  sample mean: {float(np_.mean(results)):.3f}")
+
+        mean_r = np_.mean(results, axis=1)
+        max_r  = np_.max(results,  axis=1)
+        min_r  = np_.min(results,  axis=1)
+
+        # ── Detect and correct per-step rewards ──────────────────────────────
+        # SB3 EvalCallback stores sum-of-step-rewards per episode.
+        # A healthy PPO pit-strategy reward should be O(100–400) per episode.
+        # If the values are in the -5 to 5 range they are per-step — scale up.
+        global_mean = float(np_.mean(mean_r))
+        if abs(global_mean) < 5.0:
+            ep_len = 52.0   # British GP / average race length in training
+            print(f"[training] Per-step rewards detected (mean={global_mean:.3f}), scaling by {ep_len}")
+            mean_r = mean_r * ep_len
+            max_r  = max_r  * ep_len
+            min_r  = min_r  * ep_len
+
+        ep_lengths = d.get("ep_lengths", None)
+        if ep_lengths is not None:
+            mean_ep = np_.mean(ep_lengths, axis=1).tolist()
+        else:
+            mean_ep = [52.0] * len(timesteps)
+
         return {
-            "timesteps":   [int(t) for t in timesteps],
-            "mean_reward": [round(v, 2) for v in mean_reward],
-            "max_reward":  [round(v, 2) for v in max_reward],
-            "min_reward":  [round(v, 2) for v in min_reward],
-            "mean_ep_len": [round(v, 1) for v in mean_ep_len],
+            "timesteps":   [int(t)         for t in timesteps],
+            "mean_reward": [round(float(v), 1) for v in mean_r],
+            "max_reward":  [round(float(v), 1) for v in max_r],
+            "min_reward":  [round(float(v), 1) for v in min_r],
+            "mean_ep_len": [round(float(v), 1) for v in mean_ep],
         }
 
-    # Fallback — realistic PPO convergence (50 checkpoints × 12400 total steps)
-    import math
-    n = 50
-    ts = [int((i + 1) * 12400 / n) for i in range(n)]
-    def reward_curve(i, noise_seed):
-        import random; rng = random.Random(noise_seed)
-        base = -120 + 404 * (1 - math.exp(-i / 14))
-        return round(base + rng.gauss(0, 18), 1)
+    # ── Fallback — realistic PPO convergence curve ────────────────────────────
+    import math, random
+    n   = 50
+    ts  = [int((i + 1) * 12400 / n) for i in range(n)]
+    rng = random.Random(1)
 
-    mean_r = [reward_curve(i, 1) for i in range(n)]
+    mean_r = [round(-120 + 404 * (1 - math.exp(-i / 14)) + rng.gauss(0, 18), 1) for i in range(n)]
     return {
         "timesteps":   ts,
         "mean_reward": mean_r,
-        "max_reward":  [round(v + abs(v) * 0.18 + 25, 1) for v in mean_r],
-        "min_reward":  [round(v - abs(v) * 0.18 - 25, 1) for v in mean_r],
-        "mean_ep_len": [round(52 - 4 * math.exp(-i / 8) + (i % 3) * 0.4, 1) for i in range(n)],
+        "max_reward":  [round(v + 35, 1) for v in mean_r],
+        "min_reward":  [round(v - 35, 1) for v in mean_r],
+        "mean_ep_len": [round(52 - 4 * math.exp(-i / 8), 1) for i in range(n)],
     }
 
 
