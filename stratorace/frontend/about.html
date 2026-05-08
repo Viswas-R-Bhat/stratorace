@@ -377,7 +377,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
         <div class="tc-tags">
           <span class="tc-tag">Dashboard</span>
           <span class="tc-tag">FastAPI</span>
-          <span class="tc-tag">Anthropic</span>
+          <span class="tc-tag">Groq</span>
           <span class="tc-tag">Vercel</span>
         </div>
       </div>
@@ -400,7 +400,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
           <div class="stack-item"><div class="si-label">Data</div><div class="si-val">FastF1</div></div>
           <div class="stack-item"><div class="si-label">Backend</div><div class="si-val">FastAPI</div></div>
           <div class="stack-item"><div class="si-label">Frontend</div><div class="si-val">HTML/JS</div></div>
-          <div class="stack-item"><div class="si-label">AI</div><div class="si-val">Anthropic</div></div>
+          <div class="stack-item"><div class="si-label">AI</div><div class="si-val">Groq</div></div>
           <div class="stack-item"><div class="si-label">Deploy</div><div class="si-val">Vercel</div></div>
           <div class="stack-item"><div class="si-label">GPU</div><div class="si-val">RTX 3050</div></div>
         </div>
@@ -469,7 +469,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
       <span class="footer-tag">PPO</span>
       <span class="footer-tag">2022–2024</span>
       <span class="footer-tag">FastF1</span>
-      <span class="footer-tag">Anthropic</span>
+      <span class="footer-tag">Groq</span>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
@@ -477,7 +477,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58 0-.28-.01-1.03-.02-2.03-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
       GitHub
     </a>
-    <span class="footer-copy">© 2024 StratoRace · Built with FastF1 + PPO + Anthropic</span>
+    <span class="footer-copy">© 2024 StratoRace · Built with FastF1 + PPO + Groq</span>
   </div>
 </footer>
 
@@ -503,6 +503,7 @@ footer{border-top:1px solid var(--border);padding:2rem 3rem;display:flex;align-i
   </button>
 </div>
 
+<script src="api.js"></script>
 <script>
 document.addEventListener('mousemove',e=>{document.documentElement.style.setProperty('--cx',e.clientX+'px');document.documentElement.style.setProperty('--cy',e.clientY+'px')});
 
@@ -514,7 +515,7 @@ document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 const nav=document.querySelector('nav');
 window.addEventListener('scroll',()=>{nav.style.background=window.scrollY>40?'rgba(6,12,26,.97)':'rgba(6,12,26,.92)'});
 
-/* ─── SHARED AI CALL ─── */
+/* ─── SHARED AI SYSTEM PROMPT ─── */
 const SYSTEM=`You are the StratoRace AI assistant. StratoRace is an F1 pit strategy optimisation system built on a PPO reinforcement learning agent trained on 2022–2024 Formula 1 data (~70 races, ~80k laps). 
 
 You can answer questions about:
@@ -527,13 +528,6 @@ You can answer questions about:
 - LapTimeDelta and feature engineering
 
 Answers should be 2-5 sentences: informative and specific. If asked anything outside this scope, respond: "I can only answer questions about the StratoRace project and F1 strategy model."`;
-
-async function callClaude(messages){
-  const r=await fetch(window.STRATORACE_API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,system:SYSTEM})});
-  if(!r.ok) throw new Error('API error '+r.status);
-  const data=await r.json();
-  return data.text||'No response.';
-}
 
 /* ─── FULL Q&A PANEL ─── */
 const qaMessages=document.getElementById('qaMessages');
@@ -571,7 +565,7 @@ async function sendQa(){
   qaHistory.push({role:'user',content:text});
   const t=showQaTyping();
   try{
-    const reply=await callClaude(qaHistory);
+    const reply=await callClaude(qaHistory,SYSTEM);
     t.remove();
     qaHistory.push({role:'assistant',content:reply});
     addQaMsg(reply,'assistant');
@@ -611,7 +605,7 @@ async function sendAi(){
   aiInput.value='';document.getElementById('aiSend').disabled=true;
   addAiMsg(text,'user');aiHistory.push({role:'user',content:text});
   const t=showAiTyping();
-  try{const reply=await callClaude(aiHistory);t.remove();aiHistory.push({role:'assistant',content:reply});addAiMsg(reply,'assistant')}
+  try{const reply=await callClaude(aiHistory,SYSTEM);t.remove();aiHistory.push({role:'assistant',content:reply});addAiMsg(reply,'assistant')}
   catch{t.remove();addAiMsg('Connection error.','assistant')}
   document.getElementById('aiSend').disabled=false;aiInput.focus();
 }
@@ -619,7 +613,6 @@ async function sendAi(){
 document.getElementById('aiSend').addEventListener('click',sendAi);
 aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi()}});
 </script>
-<script src="api.js"></script>
 <script src="stratorace-patch.js"></script>
 </body>
 </html>

@@ -41,6 +41,8 @@ function initFloatingAI() {
     return d;
   }
 
+  const SYS = 'You are the StratoRace AI assistant. StratoRace is an F1 pit strategy system using a real PPO RL model. Answer concisely (2-4 sentences). Only discuss StratoRace, F1 strategy, or model decisions.';
+
   async function sendMsg() {
     const text = input.value.trim();
     if (!text) return;
@@ -50,7 +52,7 @@ function initFloatingAI() {
     history.push({ role: 'user', content: text });
     const t = showTyping();
     try {
-      const reply = await callClaude(history);
+      const reply = await callClaude(history, SYS);
       t.remove();
       history.push({ role: 'assistant', content: reply });
       addMsg(reply, 'assistant');

@@ -2,7 +2,7 @@
 StratoRace — Railway Backend (FastAPI)
 Endpoints:
   GET  /health        — liveness check
-  POST /api/chat      — proxies messages to Anthropic (API key stays server-side)
+  POST /api/chat      — proxies messages to Groq (API key stays server-side)
   POST /api/predict   — runs PPO model inference, returns action + probabilities
 """
 
@@ -526,28 +526,32 @@ def training():
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """
-    Proxy to Anthropic — keeps ANTHROPIC_API_KEY server-side.
-    Set ANTHROPIC_API_KEY in Railway environment variables.
+    Proxy to Groq — keeps GROQ_API_KEY server-side.
+    Uses Groq's fast LLaMA inference for AI chat.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("GROQ_API_KEY", "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")
     if not api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set on server.")
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not set on server.")
+
+    # Build messages list — prepend system message if provided
+    messages = []
+    if req.system:
+        messages.append({"role": "system", "content": req.system})
+    messages.extend([m.model_dump() for m in req.messages])
 
     payload = {
-        "model":      "claude-sonnet-4-20250514",
+        "model":      "llama-3.3-70b-versatile",
         "max_tokens": 1000,
-        "messages":   [m.model_dump() for m in req.messages],
+        "messages":   messages,
+        "temperature": 0.7,
     }
-    if req.system:
-        payload["system"] = req.system
 
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(
-            "https://api.anthropic.com/v1/messages",
+            "https://api.groq.com/openai/v1/chat/completions",
             headers={
-                "x-api-key":         api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type":      "application/json",
+                "Authorization":  f"Bearer {api_key}",
+                "Content-Type":   "application/json",
             },
             json=payload,
         )
@@ -556,5 +560,5 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=r.status_code, detail=r.text)
 
     data = r.json()
-    text = next((b["text"] for b in data.get("content", []) if b["type"] == "text"), "")
+    text = data.get("choices", [{}])[0].get("message", {}).get("content", "No response.")
     return {"text": text}

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="api.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════════════════
@@ -1546,9 +1547,39 @@ aiSend.addEventListener('click', sendMessage);
 aiInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
+
+/* ── Particle Background ── */
+(function() {
+  var c = document.createElement('canvas');
+  c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35';
+  document.body.insertBefore(c, document.body.firstChild);
+  var ctx = c.getContext('2d'), ps = [], n = 40;
+  function resize() { c.width = innerWidth; c.height = innerHeight; }
+  resize(); addEventListener('resize', resize);
+  for (var i = 0; i < n; i++) ps.push({
+    x: Math.random()*c.width, y: Math.random()*c.height,
+    vx: (Math.random()-.5)*.3, vy: (Math.random()-.5)*.3,
+    r: Math.random()*1.5+.5, a: Math.random()*.25+.08
+  });
+  (function draw() {
+    ctx.clearRect(0,0,c.width,c.height);
+    for (var i=0;i<ps.length;i++) {
+      var p=ps[i]; p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=c.width; if(p.x>c.width)p.x=0;
+      if(p.y<0)p.y=c.height; if(p.y>c.height)p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28);
+      ctx.fillStyle='rgba(184,255,0,'+p.a+')'; ctx.fill();
+    }
+    for(var i=0;i<ps.length;i++) for(var j=i+1;j<ps.length;j++) {
+      var dx=ps[i].x-ps[j].x,dy=ps[i].y-ps[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<130){ctx.beginPath();ctx.moveTo(ps[i].x,ps[i].y);ctx.lineTo(ps[j].x,ps[j].y);
+      ctx.strokeStyle='rgba(184,255,0,'+(0.05*(1-d/130))+')';ctx.stroke();}
+    }
+    requestAnimationFrame(draw);
+  })();
+})();
 </script>
 
-<script src="api.js"></script>
 <script src="stratorace-patch.js"></script>
 </body>
 </html>

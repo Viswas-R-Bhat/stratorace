@@ -199,6 +199,50 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
   .ai-window{width:calc(100vw - 3rem)}
 }
 @media(max-width:500px){.prob-grid,.factors-grid{grid-template-columns:1fr}}
+
+/* ═══ LIVE VISUALIZATIONS ═══ */
+
+/* Tyre Wear Gauge */
+.live-telemetry{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;display:none}
+.tyre-gauge-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;padding:1.5rem;text-align:center;position:relative;overflow:hidden}
+.tyre-gauge-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(184,255,0,.04),transparent 70%);pointer-events:none}
+.tgc-title{font-family:var(--font-d);font-weight:700;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase;color:var(--white);margin-bottom:1rem}
+.tyre-gauge-wrap{position:relative;width:160px;height:160px;margin:0 auto}
+.tyre-gauge-svg{width:100%;height:100%;transform:rotate(-90deg)}
+.tyre-gauge-bg{fill:none;stroke:var(--surf2);stroke-width:10}
+.tyre-gauge-fill{fill:none;stroke:var(--lime);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke .5s ease;filter:drop-shadow(0 0 6px rgba(184,255,0,.4))}
+.tyre-gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tgc-pct{font-family:var(--font-d);font-weight:700;font-size:2.2rem;line-height:1;color:var(--lime);transition:color .5s}
+.tgc-label{font-family:var(--font-m);font-size:.6rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:.2rem}
+.tgc-compound{font-family:var(--font-d);font-weight:600;font-size:.85rem;margin-top:.75rem;letter-spacing:.06em}
+.tgc-compound.SOFT{color:var(--red)}.tgc-compound.MEDIUM{color:var(--yellow)}.tgc-compound.HARD{color:var(--white)}.tgc-compound.INTER{color:#00c850}
+.tgc-stats{display:flex;justify-content:center;gap:1.5rem;margin-top:.75rem}
+.tgc-stat{text-align:center}
+.tgc-stat-val{font-family:var(--font-d);font-weight:700;font-size:.95rem;color:var(--white)}
+.tgc-stat-lbl{font-family:var(--font-m);font-size:.55rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+
+/* Circuit Minimap */
+.circuit-card{background:var(--surf0);border:1px solid var(--border);border-radius:16px;padding:1.5rem;position:relative;overflow:hidden}
+.circuit-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 70% 40%,rgba(184,255,0,.03),transparent 60%);pointer-events:none}
+.cc-title{font-family:var(--font-d);font-weight:700;font-size:.88rem;letter-spacing:.08em;text-transform:uppercase;color:var(--white);margin-bottom:.75rem}
+.circuit-svg-wrap{position:relative;width:100%;height:180px;display:flex;align-items:center;justify-content:center}
+.circuit-svg{width:100%;height:100%}
+.circuit-track{fill:none;stroke:var(--border);stroke-width:3;stroke-linecap:round}
+.circuit-progress{fill:none;stroke:var(--lime);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 1s ease;filter:drop-shadow(0 0 4px rgba(184,255,0,.5))}
+.circuit-car{r:5;fill:var(--lime);filter:drop-shadow(0 0 8px rgba(184,255,0,.8));transition:all .8s ease}
+.circuit-start{r:3;fill:var(--white);opacity:.5}
+.cc-info{display:flex;justify-content:space-between;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.cc-info-item{text-align:center}
+.cc-info-val{font-family:var(--font-d);font-weight:700;font-size:.95rem;color:var(--lime)}
+.cc-info-lbl{font-family:var(--font-m);font-size:.55rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+
+/* Animated scan line on decision card */
+.decision-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--lime),transparent);opacity:0;animation:none}
+.decision-card.active::after{animation:scanLine 2s ease-in-out;opacity:1}
+@keyframes scanLine{0%{top:0;opacity:0}20%{opacity:.6}100%{top:100%;opacity:0}}
+
+/* Particle canvas */
+#particleCanvas{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4}
 </style>
 </head>
 <body>
@@ -231,6 +275,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
       </div>
       <div class="input-body">
 
+        <div class="api-status">
+          <div class="api-dot checking" id="apiDot"></div>
+          <span id="apiStatusText">Checking model…</span>
+        </div>
         <div class="field">
           <label>Compound</label>
           <div class="compound-selector" id="compoundSel">
@@ -339,6 +387,49 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
         </div>
         <div class="window-labels"><span>Lap 1</span><span id="winMid">–</span><span id="winMax">–</span></div>
         <p class="win-desc" id="winDesc"></p>
+      </div>
+
+      <!-- Live Telemetry -->
+      <div class="live-telemetry" id="liveTelemetry">
+        <div class="tyre-gauge-card">
+          <div class="tgc-title">Tyre Health</div>
+          <div class="tyre-gauge-wrap">
+            <svg class="tyre-gauge-svg" viewBox="0 0 120 120">
+              <circle class="tyre-gauge-bg" cx="60" cy="60" r="52"/>
+              <circle class="tyre-gauge-fill" id="tyreGaugeFill" cx="60" cy="60" r="52"
+                stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
+            </svg>
+            <div class="tyre-gauge-center">
+              <div class="tgc-pct" id="tyrePct">—</div>
+              <div class="tgc-label">remaining</div>
+            </div>
+          </div>
+          <div class="tgc-compound" id="tyreCompoundLabel">MEDIUM</div>
+          <div class="tgc-stats">
+            <div class="tgc-stat"><div class="tgc-stat-val" id="tyreAgeStat">—</div><div class="tgc-stat-lbl">Age</div></div>
+            <div class="tgc-stat"><div class="tgc-stat-val" id="tyreCliffStat">—</div><div class="tgc-stat-lbl">Cliff</div></div>
+            <div class="tgc-stat"><div class="tgc-stat-val" id="tyreDegStat">—</div><div class="tgc-stat-lbl">Deg/Lap</div></div>
+          </div>
+        </div>
+        <div class="circuit-card">
+          <div class="cc-title">Race Progress</div>
+          <div class="circuit-svg-wrap">
+            <svg class="circuit-svg" viewBox="0 0 280 180">
+              <path class="circuit-track" id="circuitTrack"
+                d="M40,140 Q40,40 100,40 L180,40 Q240,40 240,90 Q240,140 180,140 L100,140 Q60,140 40,140 Z"/>
+              <path class="circuit-progress" id="circuitProgress"
+                d="M40,140 Q40,40 100,40 L180,40 Q240,40 240,90 Q240,140 180,140 L100,140 Q60,140 40,140 Z"/>
+              <circle class="circuit-start" cx="40" cy="140"/>
+              <circle class="circuit-car" id="circuitCar" cx="40" cy="140"/>
+            </svg>
+          </div>
+          <div class="cc-info">
+            <div class="cc-info-item"><div class="cc-info-val" id="ccLap">—</div><div class="cc-info-lbl">Lap</div></div>
+            <div class="cc-info-item"><div class="cc-info-val" id="ccTotal">—</div><div class="cc-info-lbl">Total</div></div>
+            <div class="cc-info-item"><div class="cc-info-val" id="ccPos">—</div><div class="cc-info-lbl">Position</div></div>
+            <div class="cc-info-item"><div class="cc-info-val" id="ccRemain">—</div><div class="cc-info-lbl">Remaining</div></div>
+          </div>
+        </div>
       </div>
 
       <!-- History chart -->
@@ -535,7 +626,11 @@ function render(state, result) {
   var prob = result.probs;
 
   /* decision card */
-  document.getElementById('decisionCard').style.display = 'block';
+  var dc = document.getElementById('decisionCard');
+  dc.style.display = 'block';
+  dc.classList.remove('active');
+  void dc.offsetWidth;
+  dc.classList.add('active');
 
   var badge = document.getElementById('actionBadge');
   badge.textContent = meta.icon + '  ' + meta.label;
@@ -586,6 +681,9 @@ function render(state, result) {
     document.getElementById('winStart').textContent = result.pitWindow.start;
     document.getElementById('winEnd').textContent   = result.pitWindow.end;
   }
+
+  /* live telemetry */
+  renderTelemetry(state);
 
   /* history */
   historyData.push({ a: a, conf: conf, lap: state.lap, age: state.tyreAge });
@@ -646,6 +744,7 @@ function resetSim() {
   document.getElementById('historyCard').style.display = 'none';
   document.getElementById('aiExplainCard').style.display = 'none';
   document.getElementById('errCard').style.display = 'none';
+  document.getElementById('liveTelemetry').style.display = 'none';
   historyData = [];
   if (histChart) { histChart.destroy(); histChart = null; }
 }
@@ -735,6 +834,117 @@ aiSend.addEventListener('click', sendMsg);
 aiInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
 });
+
+/* ── Live Telemetry Renderer ── */
+var CLIFF_LAPS = { SOFT: 14, MEDIUM: 22, HARD: 32, INTER: 18 };
+var DEG_RATES  = { SOFT: '0.10', MEDIUM: '0.05', HARD: '0.025', INTER: '0.07' };
+
+function renderTelemetry(state) {
+  var panel = document.getElementById('liveTelemetry');
+  panel.style.display = 'grid';
+
+  var cliff = CLIFF_LAPS[state.compound] || 22;
+  var health = Math.max(0, Math.min(100, Math.round((1 - state.tyreAge / (cliff * 1.3)) * 100)));
+  var circumference = 326.73;
+  var offset = circumference - (circumference * health / 100);
+
+  var gaugeFill = document.getElementById('tyreGaugeFill');
+  gaugeFill.style.strokeDashoffset = circumference;
+  setTimeout(function() { gaugeFill.style.strokeDashoffset = offset; }, 60);
+
+  var col = health > 60 ? '#B8FF00' : health > 30 ? '#FFD600' : health > 15 ? '#FF6C00' : '#E8002D';
+  gaugeFill.style.stroke = col;
+  var pctEl = document.getElementById('tyrePct');
+  pctEl.textContent = health + '%';
+  pctEl.style.color = col;
+
+  var compLabel = document.getElementById('tyreCompoundLabel');
+  compLabel.textContent = state.compound;
+  compLabel.className = 'tgc-compound ' + state.compound;
+
+  document.getElementById('tyreAgeStat').textContent = state.tyreAge + ' laps';
+  document.getElementById('tyreCliffStat').textContent = 'Lap ' + cliff;
+  document.getElementById('tyreDegStat').textContent = DEG_RATES[state.compound] || '0.05';
+
+  /* Circuit minimap */
+  var trackPath = document.getElementById('circuitTrack');
+  var progressPath = document.getElementById('circuitProgress');
+  var carDot = document.getElementById('circuitCar');
+  var totalLen = trackPath.getTotalLength();
+  var progress = state.lap / state.totalLaps;
+
+  progressPath.style.strokeDasharray = totalLen;
+  progressPath.style.strokeDashoffset = totalLen;
+  setTimeout(function() {
+    progressPath.style.strokeDashoffset = totalLen * (1 - progress);
+  }, 60);
+
+  var pt = trackPath.getPointAtLength(totalLen * progress);
+  carDot.setAttribute('cx', pt.x);
+  carDot.setAttribute('cy', pt.y);
+
+  document.getElementById('ccLap').textContent = state.lap;
+  document.getElementById('ccTotal').textContent = state.totalLaps;
+  document.getElementById('ccPos').textContent = 'P' + state.position;
+  document.getElementById('ccRemain').textContent = (state.totalLaps - state.lap);
+}
+
+/* ── Particle Background ── */
+(function initParticles() {
+  var canvas = document.createElement('canvas');
+  canvas.id = 'particleCanvas';
+  document.body.insertBefore(canvas, document.body.firstChild);
+  var ctx = canvas.getContext('2d');
+  var particles = [];
+  var count = 35;
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (var i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+      a: Math.random() * 0.3 + 0.1
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(184,255,0,' + p.a + ')';
+      ctx.fill();
+    }
+    for (var i = 0; i < particles.length; i++) {
+      for (var j = i + 1; j < particles.length; j++) {
+        var dx = particles[i].x - particles[j].x;
+        var dy = particles[i].y - particles[j].y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = 'rgba(184,255,0,' + (0.06 * (1 - dist / 120)) + ')';
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
 
 /* init */
 refreshWindow();
