@@ -1,0 +1,254 @@
+{
+  "2022_Abu Dhabi Grand Prix": {
+    "year": 2022,
+    "gp": "Abu Dhabi Grand Prix",
+    "total_laps": 58,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Australian Grand Prix": {
+    "year": 2022,
+    "gp": "Australian Grand Prix",
+    "total_laps": 58,
+    "pit_loss_seconds": 16.1
+  },
+  "2022_Austrian Grand Prix": {
+    "year": 2022,
+    "gp": "Austrian Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Azerbaijan Grand Prix": {
+    "year": 2022,
+    "gp": "Azerbaijan Grand Prix",
+    "total_laps": 51,
+    "pit_loss_seconds": 16.7
+  },
+  "2022_Bahrain Grand Prix": {
+    "year": 2022,
+    "gp": "Bahrain Grand Prix",
+    "total_laps": 57,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Belgian Grand Prix": {
+    "year": 2022,
+    "gp": "Belgian Grand Prix",
+    "total_laps": 44,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_British Grand Prix": {
+    "year": 2022,
+    "gp": "British Grand Prix",
+    "total_laps": 52,
+    "pit_loss_seconds": 16.4
+  },
+  "2022_Canadian Grand Prix": {
+    "year": 2022,
+    "gp": "Canadian Grand Prix",
+    "total_laps": 70,
+    "pit_loss_seconds": 22.6
+  },
+  "2022_Dutch Grand Prix": {
+    "year": 2022,
+    "gp": "Dutch Grand Prix",
+    "total_laps": 72,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Emilia Romagna Grand Prix": {
+    "year": 2022,
+    "gp": "Emilia Romagna Grand Prix",
+    "total_laps": 63,
+    "pit_loss_seconds": 16.3
+  },
+  "2022_French Grand Prix": {
+    "year": 2022,
+    "gp": "French Grand Prix",
+    "total_laps": 53,
+    "pit_loss_seconds": 33.4
+  },
+  "2022_Hungarian Grand Prix": {
+    "year": 2022,
+    "gp": "Hungarian Grand Prix",
+    "total_laps": 70,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Italian Grand Prix": {
+    "year": 2022,
+    "gp": "Italian Grand Prix",
+    "total_laps": 53,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Japanese Grand Prix": {
+    "year": 2022,
+    "gp": "Japanese Grand Prix",
+    "total_laps": 29,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Mexico City Grand Prix": {
+    "year": 2022,
+    "gp": "Mexico City Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Monaco Grand Prix": {
+    "year": 2022,
+    "gp": "Monaco Grand Prix",
+    "total_laps": 64,
+    "pit_loss_seconds": 28.4
+  },
+  "2022_Saudi Arabian Grand Prix": {
+    "year": 2022,
+    "gp": "Saudi Arabian Grand Prix",
+    "total_laps": 50,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Singapore Grand Prix": {
+    "year": 2022,
+    "gp": "Singapore Grand Prix",
+    "total_laps": 59,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_Spanish Grand Prix": {
+    "year": 2022,
+    "gp": "Spanish Grand Prix",
+    "total_laps": 66,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_S\u00e3o Paulo Grand Prix": {
+    "year": 2022,
+    "gp": "S\u00e3o Paulo Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2022_United States Grand Prix": {
+    "year": 2022,
+    "gp": "United States Grand Prix",
+    "total_laps": 56,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Abu Dhabi Grand Prix": {
+    "year": 2023,
+    "gp": "Abu Dhabi Grand Prix",
+    "total_laps": 58,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Australian Grand Prix": {
+    "year": 2023,
+    "gp": "Australian Grand Prix",
+    "total_laps": 58,
+    "pit_loss_seconds": 40.6
+  },
+  "2023_Austrian Grand Prix": {
+    "year": 2023,
+    "gp": "Austrian Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Azerbaijan Grand Prix": {
+    "year": 2023,
+    "gp": "Azerbaijan Grand Prix",
+    "total_laps": 51,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Bahrain Grand Prix": {
+    "year": 2023,
+    "gp": "Bahrain Grand Prix",
+    "total_laps": 57,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Belgian Grand Prix": {
+    "year": 2023,
+    "gp": "Belgian Grand Prix",
+    "total_laps": 44,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_British Grand Prix": {
+    "year": 2023,
+    "gp": "British Grand Prix",
+    "total_laps": 52,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Canadian Grand Prix": {
+    "year": 2023,
+    "gp": "Canadian Grand Prix",
+    "total_laps": 70,
+    "pit_loss_seconds": 17.5
+  },
+  "2023_Dutch Grand Prix": {
+    "year": 2023,
+    "gp": "Dutch Grand Prix",
+    "total_laps": 72,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Hungarian Grand Prix": {
+    "year": 2023,
+    "gp": "Hungarian Grand Prix",
+    "total_laps": 70,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Italian Grand Prix": {
+    "year": 2023,
+    "gp": "Italian Grand Prix",
+    "total_laps": 51,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Japanese Grand Prix": {
+    "year": 2023,
+    "gp": "Japanese Grand Prix",
+    "total_laps": 53,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Las Vegas Grand Prix": {
+    "year": 2023,
+    "gp": "Las Vegas Grand Prix",
+    "total_laps": 50,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Mexico City Grand Prix": {
+    "year": 2023,
+    "gp": "Mexico City Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Monaco Grand Prix": {
+    "year": 2023,
+    "gp": "Monaco Grand Prix",
+    "total_laps": 78,
+    "pit_loss_seconds": 37.6
+  },
+  "2023_Qatar Grand Prix": {
+    "year": 2023,
+    "gp": "Qatar Grand Prix",
+    "total_laps": 57,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Saudi Arabian Grand Prix": {
+    "year": 2023,
+    "gp": "Saudi Arabian Grand Prix",
+    "total_laps": 50,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_Singapore Grand Prix": {
+    "year": 2023,
+    "gp": "Singapore Grand Prix",
+    "total_laps": 62,
+    "pit_loss_seconds": 25.5
+  },
+  "2023_Spanish Grand Prix": {
+    "year": 2023,
+    "gp": "Spanish Grand Prix",
+    "total_laps": 66,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_S\u00e3o Paulo Grand Prix": {
+    "year": 2023,
+    "gp": "S\u00e3o Paulo Grand Prix",
+    "total_laps": 71,
+    "pit_loss_seconds": 15.0
+  },
+  "2023_United States Grand Prix": {
+    "year": 2023,
+    "gp": "United States Grand Prix",
+    "total_laps": 56,
+    "pit_loss_seconds": 15.0
+  }
+}

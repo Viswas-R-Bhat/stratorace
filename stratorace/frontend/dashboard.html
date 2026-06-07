@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StratoRace — Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root {
+      --bg: #060b14;
+      --card-bg: rgba(15, 23, 42, 0.4);
+      --border: rgba(255, 255, 255, 0.08);
+      --primary: #3b82f6;
+      --accent: #8b5cf6;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --font: 'Inter', sans-serif;
+      --red: #ef4444; --yellow: #f59e0b; --green: #10b981;
+    }
+    body {
+      background-color: var(--bg); color: var(--text); font-family: var(--font);
+      margin: 0; padding: 0; min-height: 100vh;
+      background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 60%);
+      background-attachment: fixed;
+    }
+    ::-webkit-scrollbar{width:6px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px;}
+    
+    nav.top-nav {
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      background: rgba(6, 11, 20, 0.7); border-bottom: 1px solid var(--border);
+      padding: 1rem 3rem; display: flex; justify-content: space-between; align-items: center;
+    }
+    .nav-left { display: flex; align-items: center; gap: 2rem; }
+    .nav-logo { font-size: 1.2rem; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -0.5px; }
+    .nav-links a { margin-right: 1.5rem; color: var(--muted); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; font-weight: 500;}
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    
+    .filter-bar { display: flex; gap: 1rem; align-items: center; }
+    .filter-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 0.5rem; }
+    .filter-select {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+      padding: 0.4rem 0.8rem; border-radius: 8px; font-family: var(--font); font-size: 0.85rem;
+      outline: none; cursor: pointer; backdrop-filter: blur(10px); transition: border-color 0.2s;
+    }
+    .filter-select:hover { border-color: rgba(255,255,255,0.2); }
+    .filter-select option { background-color: var(--bg); color: var(--text); }
+    
+    .bento-container {
+      max-width: 1400px; margin: 2.5rem auto; padding: 0 2rem;
+      display: flex; flex-direction: column; gap: 1.5rem;
+    }
+    .bento-row { display: grid; gap: 1.5rem; }
+    .row-3 { grid-template-columns: repeat(3, 1fr); }
+    .row-2 { grid-template-columns: 1fr 1fr; }
+    .row-2-wide { grid-template-columns: 2fr 1fr; }
+    
+    @media(max-width: 1000px) {
+      .row-3, .row-2, .row-2-wide { grid-template-columns: 1fr; }
+      nav.top-nav { flex-direction: column; gap: 1rem; }
+    }
+    
+    .bento-card {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px;
+      padding: 1.8rem; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+      display: flex; flex-direction: column;
+    }
+    .bento-header { margin-bottom: 1.5rem; }
+    .bento-title { margin: 0; font-size: 1.15rem; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+    .bento-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.3rem; line-height: 1.4; }
+    
+    .chart-wrap { position: relative; flex: 1; min-height: 280px; width: 100%; }
+    .chart-wrap.tall { min-height: 380px; }
+    
+    /* Metrics */
+    .kpi-value { font-size: 3.5rem; font-weight: 300; margin: 0.5rem 0; letter-spacing: -1.5px; background: linear-gradient(135deg, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+    .kpi-value.accent { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; }
+    
+    /* SHAP Bars */
+    .shap-bars { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+    .shap-row { display: flex; align-items: center; gap: 1rem; }
+    .shap-label { font-size: 0.85rem; width: 110px; text-align: right; color: var(--muted); font-weight: 500;}
+    .shap-bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; position: relative; overflow: hidden; }
+    .shap-bar-fill { position: absolute; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); width: 0%; }
+    .shap-val { font-size: 0.85rem; width: 45px; color: var(--text); font-weight: 600; text-align: right; }
+    
+    /* Pit Window Grid */
+    .pit-window-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;}
+    .pit-window-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 1.2rem; transition: transform 0.2s, background 0.2s; }
+    .pit-window-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.04); }
+    .pwc-driver { font-weight: 600; font-size: 1rem; margin-bottom: 0.3rem; }
+    .pwc-window { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.8rem; font-weight: 500;}
+    .pwc-bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; position: relative; overflow: hidden;}
+    .pwc-range { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 3px; }
+
+    /* Timeline Scrub */
+    .timeline-container { margin-top: 1rem; padding-bottom: 2rem;}
+    .pit-markers { position: relative; height: 24px; margin-bottom: 0.5rem; }
+    .pit-marker { position: absolute; width: 2px; height: 12px; background: var(--red); bottom: 0; border-radius: 1px; }
+    .pit-marker.agent { background: var(--primary); }
+    .timeline-track { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; position: relative; cursor: pointer; border: 1px solid var(--border); }
+    .timeline-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 4px; }
+    .timeline-thumb { position: absolute; top: 50%; width: 20px; height: 20px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px rgba(59,130,246,0.6); border: 2px solid var(--bg); cursor: grab; }
+    .timeline-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-top: 0.8rem; font-weight: 500;}
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="nav-left">
+    <a href="index.html" class="nav-logo">StratoRace</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="dashboard.html" class="active">Analytics</a>
+      <a href="model.html">Model</a>
+      <a href="about.html">About</a>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <div>
+      <span class="filter-label">Year</span>
+      <select class="filter-select" id="filterYear"><option value="2023">2023</option></select>
+    </div>
+    <div>
+      <span class="filter-label">Grand Prix</span>
+      <select class="filter-select" id="filterGP"><option value="British">British</option></select>
+    </div>
+    <div>
+      <span class="filter-label">Driver</span>
+      <select class="filter-select" id="filterDriver"><option value="ALL">All Drivers</option></select>
+    </div>
+  </div>
+</nav>
+
+<main class="bento-container">
+  
+  <!-- Row 1: High Level KPIs -->
+  <section class="bento-row row-3">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Agent Accuracy</h2>
+      </div>
+      <div class="kpi-value accent" id="agentAccuracy">—</div>
+      <div class="bento-sub">Correct pit calls vs actual strategy</div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Avg Timing Error</h2>
+      </div>
+      <div class="kpi-value" id="agentPitError">—</div>
+      <div class="bento-sub">Laps difference from real optimal</div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Model Confidence</h2>
+      </div>
+      <div class="kpi-value" id="agentConfidence">—</div>
+      <div class="bento-sub">Average certainty of the agent's pit decisions</div>
+    </div>
+  </section>
+
+  <!-- Row 2: Strategy Replay & Windows -->
+  <section class="bento-row row-2-wide">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Race Strategy Timeline</h2>
+        <div class="bento-sub" id="lapDisplay">Lap 15 / 52</div>
+      </div>
+      
+
+      <div class="chart-wrap"><canvas id="replayChart"></canvas></div>
+    </div>
+    
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Optimal Pit Windows</h2>
+        <div class="bento-sub">Recommended lap ranges based on filters</div>
+      </div>
+      <div class="pit-window-grid" id="pitWindowGrid"></div>
+    </div>
+  </section>
+
+  <!-- Row 3: Explainability -->
+  <section class="bento-row row-2-wide">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">AI Decision Weights (SHAP)</h2>
+        <div class="bento-sub">Mean |SHAP| value showing feature importance across all decisions</div>
+      </div>
+      <div class="shap-bars" id="shapBars"></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Confidence Distribution</h2>
+        <div class="bento-sub">Certainty level of model actions</div>
+      </div>
+      <div class="chart-wrap"><canvas id="confChart"></canvas></div>
+    </div>
+  </section>
+  
+  <!-- Row 4: Tyre Degradation Model -->
+  <section class="bento-row row-2">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Tyre Degradation Curves</h2>
+        <div class="bento-sub">Lap time delta by compound age (Global Model)</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="degChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">SHAP Beeswarm</h2>
+        <div class="bento-sub">Feature impact distribution on positive/negative decisions</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="shapScatter"></canvas></div>
+    </div>
+  </section>
+  
+  <!-- Row 5: Detailed Tyre Data -->
+  <section class="bento-row row-2">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Per-Driver Stint Degradation</h2>
+        <div class="bento-sub">LapTimeDelta across individual stints</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="driverDegChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Global Tyre Scatter</h2>
+        <div class="bento-sub">Tyre Age vs LapTimeDelta for all compounds</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="scatterDeg"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Row 6: Agent vs Actual Evaluation -->
+  <section class="bento-row row-3">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Reward by Grand Prix</h2>
+        <div class="bento-sub">Average model reward per track</div>
+      </div>
+      <div class="chart-wrap"><canvas id="avaChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Decision Accuracy</h2>
+        <div class="bento-sub">Agent calls matching actual strategy</div>
+      </div>
+      <div class="chart-wrap"><canvas id="agreementChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Pit Timing Error</h2>
+        <div class="bento-sub">Laps difference from optimal</div>
+      </div>
+      <div class="chart-wrap"><canvas id="timeSavedChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Row 7: Model Training Metrics -->
+  <section class="bento-row row-2">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Cumulative Reward</h2>
+        <div class="bento-sub">Training progression over timesteps</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="rewardChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Policy & Value Loss</h2>
+        <div class="bento-sub">PPO network optimization metrics</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="pLossChart"></canvas></div>
+    </div>
+  </section>
+  <section class="bento-row row-2">
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Episode Length</h2>
+        <div class="bento-sub">Average laps survived per episode</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="entropyChart"></canvas></div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-header">
+        <h2 class="bento-title">Pit Window Chart</h2>
+        <div class="bento-sub">Visual lap range for selected drivers</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="pitWindowChart"></canvas></div>
+    </div>
+  </section>
+  
+  <div style="display:none">
+    <canvas id="vLossChart"></canvas> <!-- Hidden because Policy & Value loss are visually redundant or we can combine them later if needed, but we don't want JS errors -->
+    <span id="agentRaces"></span>
+    <span id="softDeg"></span><span id="softSub"></span><span id="softCliff"></span>
+    <span id="medDeg"></span><span id="medSub"></span>
+    <span id="hardDeg"></span><span id="hardSub"></span>
+    <span id="finalRewardVal"></span>
+  </div>
+
+</main>
+
+<script>
+/* REPLAY CHART (Mock for aesthetic) */
+(function(){
+  const laps=Array.from({length:52},(_,i)=>i+1);
+  const agentPos=laps.map(l=>Math.max(1,4+Math.round(Math.sin(l/8)*1.5+(l<18?0:l<37?-1:-0.5))));
+  const actualPos=laps.map(l=>Math.max(1,4+Math.round(Math.sin(l/8)*1.5+(l<21?0:l<40?-0.5:0))));
+  
+  const ctx = document.getElementById('replayChart').getContext('2d');
+  
+  // Create beautiful gradients
+  const gradientAgent = ctx.createLinearGradient(0, 0, 0, 400);
+  gradientAgent.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+  gradientAgent.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+  
+  new Chart(ctx,{
+    type:'line',
+    data:{labels:laps,datasets:[
+      {label:'Agent Strategy',data:agentPos,borderColor:'#3b82f6',backgroundColor: gradientAgent, borderWidth:3,fill:true,pointRadius:0, tension:0.4},
+      {label:'Actual Strategy',data:actualPos,borderColor:'rgba(255,255,255,0.2)',borderWidth:2,fill:false,pointRadius:0,borderDash:[5,5], tension:0.4}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction: { mode: 'index', intersect: false },
+      plugins:{
+        legend:{display:true,labels:{color:'#94a3b8',usePointStyle:true,boxWidth:8, padding:20, font:{family:'Inter', size:12}}},
+        tooltip:{backgroundColor:'rgba(15, 23, 42, 0.9)',titleFont:{family:'Inter'},bodyFont:{family:'Inter'},padding:12,borderColor:'rgba(255,255,255,0.1)',borderWidth:1, cornerRadius:8}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#64748b',font:{family:'Inter'}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},reverse:true,ticks:{color:'#64748b',font:{family:'Inter'},stepSize:1}}
+      }
+    }
+  });
+})();
+
+
+</script>
+
+<script src="dashboard-data.js"></script>
+</body>
+</html>
